@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
+import { getAuth, Auth } from "firebase/auth";
 
 // Web app Firebase configuration from environment variables
 const firebaseConfig = {
@@ -15,6 +16,9 @@ const firebaseConfig = {
 // Initialize Firebase (singleton pattern for Next.js SSR / Fast Refresh)
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
+// Initialize Firebase Auth
+const auth: Auth = getAuth(app);
+
 // Analytics is only supported in browser environments
 let analytics: Analytics | null = null;
 if (typeof window !== "undefined") {
@@ -25,4 +29,4 @@ if (typeof window !== "undefined") {
   });
 }
 
-export { app, analytics, firebaseConfig };
+export { app, auth, analytics, firebaseConfig };

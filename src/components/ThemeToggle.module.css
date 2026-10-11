@@ -1,0 +1,47 @@
+.segmentedControl {
+  display: inline-flex;
+  align-items: center;
+  background: var(--toggle-bg);
+  border: 1px solid var(--toggle-border);
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 2px;
+  box-shadow: var(--toggle-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
+}
+
+.segmentButton {
+  background: transparent;
+  border: none;
+  border-radius: 9999px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  --fillg: var(--text-muted);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  position: relative;
+}
+
+.segmentButton:hover {
+  color: var(--text-primary);
+  --fillg: var(--text-primary);
+  background: var(--toggle-hover-bg);
+}
+
+.segmentButton:focus-visible {
+  box-shadow: 0 0 0 2px var(--brand-accent);
+}
+
+.segmentButton.active {
+  background: var(--toggle-active-bg);
+  color: var(--text-primary);
+  --fillg: var(--text-primary);
+  box-shadow: var(--toggle-active-shadow);
+}
