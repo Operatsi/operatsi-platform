@@ -6,35 +6,8 @@
   justify-content: space-between;
   align-items: center;
   position: relative;
-  overflow: hidden;
   padding: 1.5rem 1rem 2rem;
   background-color: var(--bg-main);
-}
-
-/* Ambient glow backgrounds */
-.ambientGlow1 {
-  position: absolute;
-  top: -150px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 450px;
-  background: radial-gradient(circle, var(--bg-gradient-1) 0%, transparent 70%);
-  filter: blur(60px);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.ambientGlow2 {
-  position: absolute;
-  bottom: -150px;
-  right: 10%;
-  width: 500px;
-  height: 400px;
-  background: radial-gradient(circle, var(--bg-gradient-2) 0%, transparent 70%);
-  filter: blur(70px);
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* Header bar */
@@ -48,7 +21,7 @@
   padding: 0.25rem 0.5rem;
 }
 
-/* Main form card */
+/* Main form area */
 .mainContent {
   width: 100%;
   display: flex;
@@ -61,26 +34,13 @@
 .authCard {
   width: 100%;
   max-width: 440px;
-  background: var(--card-bg);
+  background-color: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 24px;
+  border-radius: 12px;
   box-shadow: var(--card-shadow);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  padding: 2.25rem 2.25rem 2rem;
+  padding: 2.25rem;
   position: relative;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.authCard::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 15%;
-  right: 15%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--card-border-glow), transparent);
-  pointer-events: none;
+  transition: border-color 0.2s ease;
 }
 
 /* Brand header inside card */
@@ -98,11 +58,6 @@
   justify-content: center;
   margin-bottom: 1.25rem;
   height: 52px;
-  transition: transform 0.2s ease;
-}
-
-.logoWrapper:hover {
-  transform: scale(1.02);
 }
 
 .logoImage {
@@ -112,11 +67,11 @@
 }
 
 .cardTitle {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  letter-spacing: -0.025em;
   color: var(--text-primary);
   margin-bottom: 0.35rem;
+  letter-spacing: -0.01em;
 }
 
 .cardSubtitle {
@@ -130,24 +85,24 @@
 .tabNav {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: var(--input-bg);
+  background-color: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 1.5rem;
-  gap: 4px;
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 1.25rem;
+  gap: 3px;
 }
 
 .tabBtn {
-  background: transparent;
+  background-color: transparent;
   border: none;
   padding: 0.55rem 0.75rem;
-  border-radius: 9px;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .tabBtn:hover {
@@ -155,9 +110,9 @@
 }
 
 .tabBtn.activeTab {
-  background: var(--card-bg);
+  background-color: var(--card-bg);
   color: var(--text-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--card-border);
 }
 
 /* Social Login Grid */
@@ -173,30 +128,29 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  background: var(--btn-social-bg);
+  background-color: var(--btn-social-bg);
   border: 1px solid var(--btn-social-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 0.65rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--btn-social-text);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
   outline: none;
 }
 
 .socialBtn:hover:not(:disabled) {
-  background: var(--btn-social-hover-bg);
+  background-color: var(--btn-social-hover-bg);
   border-color: var(--brand-accent);
-  transform: translateY(-1px);
 }
 
 .socialBtn:focus-visible {
-  box-shadow: 0 0 0 2px var(--brand-accent);
+  outline: 2px solid var(--brand-accent);
 }
 
 .socialBtn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -209,7 +163,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .divider::before,
@@ -217,7 +171,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--divider-color);
+  background-color: var(--divider-color);
 }
 
 .divider span {
@@ -228,13 +182,14 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 1.05rem;
+  gap: 1.1rem;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  position: relative;
 }
 
 .labelRow {
@@ -257,12 +212,10 @@
   font-weight: 500;
   cursor: pointer;
   padding: 0;
-  transition: color 0.15s ease;
 }
 
 .forgotLink:hover {
   text-decoration: underline;
-  filter: brightness(1.2);
 }
 
 .inputWrapper {
@@ -273,14 +226,14 @@
 
 .input {
   width: 100%;
-  background: var(--input-bg);
+  background-color: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: 12px;
-  padding: 0.72rem 1rem;
-  font-size: 0.9rem;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.875rem;
   color: var(--input-text);
   outline: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.15s ease;
 }
 
 .input::placeholder {
@@ -289,7 +242,7 @@
 
 .input:focus {
   border-color: var(--input-border-focus);
-  box-shadow: 0 0 0 3px var(--input-focus-ring);
+  outline: 2px solid var(--input-focus-ring);
 }
 
 .inputWithToggle {
@@ -307,170 +260,232 @@
   align-items: center;
   justify-content: center;
   padding: 4px;
-  border-radius: 6px;
-  transition: color 0.15s ease;
+  border-radius: 4px;
 }
 
 .passwordToggle:hover {
   color: var(--text-primary);
 }
 
-/* Password Strength Progress Bar & Requirement Tooltip */
-.strengthContainer {
+/* Professional Corporate SaaS Password Strength Section */
+.strengthSection {
   position: relative;
+  margin-top: 0.35rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin-top: 0.2rem;
-  padding: 0.15rem 0;
+  gap: 0.4rem;
 }
 
-.strengthBarWrapper {
+.strengthBarClickable {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+  border-radius: 6px;
+}
+
+.strengthBarClickable:focus-visible {
+  outline: 2px solid var(--brand-accent);
+}
+
+/* 3-segment clean solid progress bar */
+.strengthSegments {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
   width: 100%;
   height: 6px;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: 9999px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.strengthBarWrapper:hover {
-  box-shadow: 0 0 0 2px var(--input-focus-ring);
-}
-
-.strengthBarFill {
+.strengthSegment {
   height: 100%;
-  border-radius: 9999px;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 3px;
+  background-color: var(--input-border);
+  transition: background-color 0.2s ease;
 }
 
-.strengthFillNone {
-  width: 0%;
-  background-color: transparent;
+.strengthSegmentRed {
+  background-color: var(--status-red);
 }
 
-.strengthFillRed {
-  background-color: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+.strengthSegmentOrange {
+  background-color: var(--status-orange);
 }
 
-.strengthFillOrange {
-  background-color: #f97316;
-  box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+.strengthSegmentGreen {
+  background-color: var(--status-green);
 }
 
-.strengthFillGreen {
-  background-color: #22c55e;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
-}
-
-.strengthLabelRow {
+.strengthMetaRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: 0.775rem;
+}
+
+.strengthMetaLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.statusPill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.statusPillNone {
+  background-color: var(--input-border);
   color: var(--text-muted);
 }
 
-.strengthText strong.textRed {
-  color: #ef4444;
+.statusPillRed {
+  background-color: var(--status-red);
+  color: #ffffff;
 }
 
-.strengthText strong.textOrange {
-  color: #f97316;
+.statusPillOrange {
+  background-color: var(--status-orange);
+  color: #ffffff;
 }
 
-.strengthText strong.textGreen {
-  color: #22c55e;
+.statusPillGreen {
+  background-color: var(--status-green);
+  color: #ffffff;
 }
 
-.strengthReadyBadge {
-  color: #22c55e;
-  font-weight: 600;
+.strengthTriggerHint {
+  font-size: 0.725rem;
+  color: var(--brand-accent);
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 0.75rem;
-  animation: pulseGreen 2s infinite ease-in-out;
+  gap: 2px;
 }
 
-@keyframes pulseGreen {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
+.strengthTriggerHint:hover {
+  text-decoration: underline;
 }
 
-.strengthTooltip {
+/* Corporate SaaS Requirements Popover Panel */
+.saasRequirementsCard {
   position: absolute;
-  bottom: calc(100% + 8px);
+  bottom: calc(100% + 10px);
   left: 0;
   right: 0;
-  background: var(--card-bg);
+  background-color: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
   box-shadow: var(--modal-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  z-index: 50;
-  animation: tooltipSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 1rem 1.1rem;
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.65rem;
+  animation: fadeIn 0.15s ease-out;
 }
 
-@keyframes tooltipSlide {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.popoverHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--divider-color);
+  padding-bottom: 0.5rem;
 }
 
-.tooltipTitle {
-  font-size: 0.75rem;
+.popoverTitle {
+  font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-primary);
-  margin-bottom: 0.2rem;
 }
 
-.requirementItem {
+.popoverCloseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
   display: flex;
   align-items: center;
+  justify-content: center;
+}
+
+.popoverCloseBtn:hover {
+  color: var(--text-primary);
+}
+
+.requirementsList {
+  display: flex;
+  flex-direction: column;
   gap: 0.45rem;
-  font-size: 0.78rem;
+}
+
+.requirementRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
   line-height: 1.3;
-  transition: color 0.2s ease;
 }
 
-.requirementItem.met {
-  color: #22c55e;
-  font-weight: 600;
+.checkBadge {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
-.requirementItem.unmet {
+.checkBadgeMet {
+  background-color: var(--status-green);
+  color: #ffffff;
+}
+
+.checkBadgeUnmet {
+  background-color: var(--input-border);
   color: var(--text-muted);
 }
 
-.tooltipHint {
-  margin-top: 0.25rem;
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  border-top: 1px solid var(--divider-color);
-  padding-top: 0.35rem;
+.ruleTextMet {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
-.disabledButtonNotice {
-  font-size: 0.75rem;
-  color: #ef4444;
-  text-align: center;
-  margin-top: -0.25rem;
+.ruleTextUnmet {
+  color: var(--text-muted);
+}
+
+.popoverFooterAlert {
+  border-top: 1px solid var(--divider-color);
+  padding-top: 0.5rem;
+  font-size: 0.735rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.popoverFooterAlert.alertMet {
+  color: var(--status-green);
+  font-weight: 600;
+}
+
+.popoverFooterAlert.alertUnmet {
+  color: var(--text-secondary);
 }
 
 /* Checkbox row */
@@ -498,10 +513,10 @@
 
 /* Alert messages */
 .alertError {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #f87171;
-  border-radius: 10px;
+  background-color: rgba(220, 38, 38, 0.1);
+  border: 1px solid var(--status-red);
+  color: var(--status-red);
+  border-radius: 8px;
   padding: 0.65rem 0.85rem;
   font-size: 0.825rem;
   display: flex;
@@ -511,10 +526,10 @@
 }
 
 .alertSuccess {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.25);
-  color: #4ade80;
-  border-radius: 10px;
+  background-color: rgba(22, 163, 74, 0.1);
+  border: 1px solid var(--status-green);
+  color: var(--status-green);
+  border-radius: 8px;
   padding: 0.65rem 0.85rem;
   font-size: 0.825rem;
   display: flex;
@@ -523,43 +538,49 @@
   line-height: 1.4;
 }
 
-/* Primary Action Button */
+/* Primary Action Button - Solid Corporate Style */
 .submitBtn {
-  background: var(--btn-primary-bg);
+  background-color: var(--btn-primary-bg);
   border: none;
-  border-radius: 12px;
-  color: #ffffff;
-  padding: 0.8rem 1rem;
-  font-size: 0.925rem;
+  border-radius: 8px;
+  color: var(--btn-primary-text);
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: var(--btn-primary-shadow);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-top: 0.35rem;
+  transition: background-color 0.15s ease;
+  margin-top: 0.25rem;
   outline: none;
 }
 
 .submitBtn:hover:not(:disabled) {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
+  background-color: var(--btn-primary-hover);
 }
 
 .submitBtn:active:not(:disabled) {
-  transform: translateY(0);
+  background-color: var(--btn-primary-active);
 }
 
 .submitBtn:focus-visible {
-  box-shadow: 0 0 0 3px var(--brand-accent-glow);
+  outline: 2px solid var(--brand-accent);
 }
 
 .submitBtn:disabled {
-  opacity: 0.65;
+  opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
+  background-color: #475569;
+}
+
+.disabledButtonNotice {
+  font-size: 0.75rem;
+  color: var(--status-red);
+  text-align: center;
+  margin-top: -0.25rem;
+  font-weight: 500;
 }
 
 /* Secondary switch link inside card */
@@ -577,12 +598,10 @@
   font-weight: 600;
   cursor: pointer;
   padding: 0 0.25rem;
-  transition: color 0.15s ease;
 }
 
 .switchModeBtn:hover {
   text-decoration: underline;
-  filter: brightness(1.2);
 }
 
 /* User logged-in session card */
@@ -596,30 +615,29 @@
 }
 
 .userAvatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--btn-primary-bg);
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background-color: var(--btn-primary-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: #ffffff;
-  box-shadow: 0 4px 16px var(--brand-accent-glow);
 }
 
 .userEmail {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .workspaceBadge {
-  background: var(--input-bg);
+  background-color: var(--input-bg);
   border: 1px solid var(--input-border);
-  padding: 4px 12px;
-  border-radius: 20px;
+  padding: 4px 10px;
+  border-radius: 6px;
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
@@ -628,18 +646,18 @@
   background: transparent;
   border: 1px solid var(--card-border);
   color: var(--text-primary);
-  border-radius: 10px;
-  padding: 0.6rem 1.25rem;
-  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .signOutBtn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background-color: rgba(220, 38, 38, 0.1);
+  border-color: var(--status-red);
+  color: var(--status-red);
 }
 
 /* Footer (Terms, Privacy, Help Center) */
@@ -669,7 +687,6 @@
   cursor: pointer;
   padding: 2px 4px;
   font-size: 0.825rem;
-  transition: color 0.15s ease;
 }
 
 .footerLink:hover {
@@ -679,27 +696,16 @@
 
 .footerDot {
   color: var(--text-muted);
-  opacity: 0.6;
-  font-weight: bold;
+  opacity: 0.5;
 }
 
-/* Responsive adjustments */
 @media (max-width: 480px) {
   .authCard {
-    padding: 1.75rem 1.25rem 1.5rem;
-    border-radius: 20px;
-  }
-
-  .cardTitle {
-    font-size: 1.35rem;
+    padding: 1.5rem 1.15rem;
+    border-radius: 10px;
   }
 
   .socialGrid {
     grid-template-columns: 1fr;
-  }
-
-  .footerLinks {
-    gap: 0.4rem;
-    font-size: 0.775rem;
   }
 }

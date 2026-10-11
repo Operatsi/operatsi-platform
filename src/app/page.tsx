@@ -12,6 +12,7 @@ import {
   SpinnerIcon,
   AlertCircleIcon,
   CheckIcon,
+  CloseIcon,
 } from "../components/Icons";
 import { LegalModal, LegalDocType } from "../components/LegalModal";
 import { auth } from "../lib/firebase";
@@ -45,7 +46,8 @@ export default function LoginPage() {
   // UI states
   const [showPassword, setShowPassword] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
-  const [showStrengthTooltip, setShowStrengthTooltip] = useState(false);
+  const [isRequirementsOpen, setIsRequirementsOpen] = useState(false);
+  const [isHoveringProgress, setIsHoveringProgress] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -54,32 +56,11 @@ export default function LoginPage() {
   const hasMinLength = password.length >= 6;
   const hasNumber = /\d/.test(password);
   const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password);
+  const criteriaMetCount = (hasMinLength ? 1 : 0) + (hasNumber ? 1 : 0) + (hasSymbol ? 1 : 0);
   const isPasswordGreen = hasMinLength && hasNumber && hasSymbol;
 
-  // Compute strength indicator
-  let strengthFillClass = styles.strengthFillNone;
-  let strengthTextClass = "";
-  let strengthLabel = "Enter password";
-  let strengthPercent = 0;
-
-  if (password.length > 0) {
-    if (isPasswordGreen) {
-      strengthFillClass = styles.strengthFillGreen;
-      strengthTextClass = styles.textGreen;
-      strengthLabel = "Strong (Green)";
-      strengthPercent = 100;
-    } else if (hasMinLength && (hasNumber || hasSymbol)) {
-      strengthFillClass = styles.strengthFillOrange;
-      strengthTextClass = styles.textOrange;
-      strengthLabel = "Medium (Orange)";
-      strengthPercent = 66;
-    } else {
-      strengthFillClass = styles.strengthFillRed;
-      strengthTextClass = styles.textRed;
-      strengthLabel = "Weak (Red)";
-      strengthPercent = 33;
-    }
-  }
+  // Show requirements popover when clicked, hovered, or focused
+  const showRequirements = isRequirementsOpen || isHoveringProgress || isPasswordFocused;
 
   // Legal modal state
   const [legalModal, setLegalModal] = useState<LegalDocType>(null);
@@ -246,10 +227,6 @@ export default function LoginPage() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Background ambient lighting */}
-      <div className={styles.ambientGlow1} />
-      <div className={styles.ambientGlow2} />
-
       {/* Top Header with Theme Switcher */}
       <header className={styles.headerBar}>
         <ThemeToggle />
@@ -579,52 +556,144 @@ export default function LoginPage() {
                       </button>
                     </div>
 
-                    {/* Red / Orange / Green Progress Bar with Hover Requirements Tooltip */}
-                    <div
-                      id="password-strength-container"
-                      className={styles.strengthContainer}
-                      onMouseEnter={() => setShowStrengthTooltip(true)}
-                      onMouseLeave={() => setShowStrengthTooltip(false)}
-                    >
-                      <div className={styles.strengthBarWrapper} title="Password strength indicator">
-                        <div
-                          className={`${styles.strengthBarFill} ${strengthFillClass}`}
-                          style={{ width: `${strengthPercent}%` }}
-                        />
+                    {/* Professional Corporate SaaS Solid 3-Segment Progress Bar */}
+                    <div className={styles.strengthSection}>
+                      <button
+                        id="btn-password-strength-toggle"
+                        type="button"
+                        className={styles.strengthBarClickable}
+                        onClick={() => setIsRequirementsOpen((prev) => !prev)}
+                        onMouseEnter={() => setIsHoveringProgress(true)}
+                        onMouseLeave={() => setIsHoveringProgress(false)}
+                        aria-expanded={showRequirements}
+                        aria-label="Toggle password requirements"
+                        title="Click to view password requirements"
+                      >
+                        <div className={styles.strengthSegments}>
+                          <div
+                            className={`${styles.strengthSegment} ${
+                              criteriaMetCount >= 1 ? styles.strengthSegmentRed : ""
+                            }`}
+                          />
+                          <div
+                            className={`${styles.strengthSegment} ${
+                              criteriaMetCount >= 2 ? styles.strengthSegmentOrange : ""
+                            }`}
+                          />
+                          <div
+                            className={`${styles.strengthSegment} ${
+                              criteriaMetCount >= 3 ? styles.strengthSegmentGreen : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      <div className={styles.strengthMetaRow}>
+                        <div className={styles.strengthMetaLeft}>
+                          <span>Strength:</span>
+                          <span
+                            className={`${styles.statusPill} ${
+                              password.length === 0
+                                ? styles.statusPillNone
+                                : isPasswordGreen
+                                ? styles.statusPillGreen
+                                : criteriaMetCount === 2
+                                ? styles.statusPillOrange
+                                : styles.statusPillRed
+                            }`}
+                          >
+                            {password.length === 0
+                              ? "Empty"
+                              : isPasswordGreen
+                              ? "Strong"
+                              : criteriaMetCount === 2
+                              ? "Medium"
+                              : "Weak"}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.strengthTriggerHint}
+                          onClick={() => setIsRequirementsOpen((prev) => !prev)}
+                        >
+                          {showRequirements ? "Hide rules ▴" : "Click to view rules ▾"}
+                        </button>
                       </div>
 
-                      <div className={styles.strengthLabelRow}>
-                        <span className={styles.strengthText}>
-                          Strength: <strong className={strengthTextClass}>{strengthLabel}</strong>
-                        </span>
-                        {isPasswordGreen ? (
-                          <span className={styles.strengthReadyBadge}>✓ Ready to create account</span>
-                        ) : (
-                          <span style={{ fontSize: "0.72rem" }}>Hover for requirements</span>
-                        )}
-                      </div>
+                      {/* Corporate SaaS Requirements Popover Panel */}
+                      {showRequirements && (
+                        <div className={styles.saasRequirementsCard} role="tooltip">
+                          <div className={styles.popoverHeader}>
+                            <span className={styles.popoverTitle}>Password Requirements</span>
+                            <button
+                              type="button"
+                              className={styles.popoverCloseBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsRequirementsOpen(false);
+                              }}
+                              aria-label="Close requirements"
+                            >
+                              <CloseIcon size={14} />
+                            </button>
+                          </div>
 
-                      {/* Requirement Tooltip on hover or focus */}
-                      {(showStrengthTooltip || isPasswordFocused) && (
-                        <div className={styles.strengthTooltip} role="tooltip">
-                          <div className={styles.tooltipTitle}>Password requirements</div>
-                          <div className={`${styles.requirementItem} ${hasMinLength ? styles.met : styles.unmet}`}>
-                            <span>{hasMinLength ? "✓" : "○"}</span>
-                            <span>Minimum 6 characters</span>
-                          </div>
-                          <div className={`${styles.requirementItem} ${hasNumber ? styles.met : styles.unmet}`}>
-                            <span>{hasNumber ? "✓" : "○"}</span>
-                            <span>At least 1 numerical digit (0-9)</span>
-                          </div>
-                          <div className={`${styles.requirementItem} ${hasSymbol ? styles.met : styles.unmet}`}>
-                            <span>{hasSymbol ? "✓" : "○"}</span>
-                            <span>At least 1 symbol / special character (!@#$...)</span>
-                          </div>
-                          {!isPasswordGreen && (
-                            <div className={styles.tooltipHint}>
-                              Progress bar must turn green to create an account.
+                          <div className={styles.requirementsList}>
+                            <div className={styles.requirementRow}>
+                              <div
+                                className={`${styles.checkBadge} ${
+                                  hasMinLength ? styles.checkBadgeMet : styles.checkBadgeUnmet
+                                }`}
+                              >
+                                {hasMinLength ? "✓" : "—"}
+                              </div>
+                              <span
+                                className={hasMinLength ? styles.ruleTextMet : styles.ruleTextUnmet}
+                              >
+                                Minimum 6 characters
+                              </span>
                             </div>
-                          )}
+
+                            <div className={styles.requirementRow}>
+                              <div
+                                className={`${styles.checkBadge} ${
+                                  hasNumber ? styles.checkBadgeMet : styles.checkBadgeUnmet
+                                }`}
+                              >
+                                {hasNumber ? "✓" : "—"}
+                              </div>
+                              <span
+                                className={hasNumber ? styles.ruleTextMet : styles.ruleTextUnmet}
+                              >
+                                At least 1 numerical digit (0–9)
+                              </span>
+                            </div>
+
+                            <div className={styles.requirementRow}>
+                              <div
+                                className={`${styles.checkBadge} ${
+                                  hasSymbol ? styles.checkBadgeMet : styles.checkBadgeUnmet
+                                }`}
+                              >
+                                {hasSymbol ? "✓" : "—"}
+                              </div>
+                              <span
+                                className={hasSymbol ? styles.ruleTextMet : styles.ruleTextUnmet}
+                              >
+                                At least 1 symbol / special character (!@#$...)
+                              </span>
+                            </div>
+                          </div>
+
+                          <div
+                            className={`${styles.popoverFooterAlert} ${
+                              isPasswordGreen ? styles.alertMet : styles.alertUnmet
+                            }`}
+                          >
+                            {isPasswordGreen
+                              ? "✓ All criteria met. Account creation enabled."
+                              : "Progress bar must turn green to create account."}
+                          </div>
                         </div>
                       )}
                     </div>
