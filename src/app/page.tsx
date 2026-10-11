@@ -14,7 +14,7 @@ import {
   CloseIcon,
 } from "../components/Icons";
 import { LegalModal, LegalDocType } from "../components/LegalModal";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -26,6 +26,13 @@ import {
   signOut,
   User,
 } from "firebase/auth";
+import {
+  doc,
+  setDoc,
+  updateDoc,
+  getDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import styles from "./page.module.css";
 
 type AuthMode = "signin" | "signup" | "forgot" | "verify_otp";
@@ -95,12 +102,28 @@ export default function LoginPage() {
   // Legal modal state
   const [legalModal, setLegalModal] = useState<LegalDocType>(null);
 
-  // Auth session state
+  // Auth session & verification states
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isUserVerified, setIsUserVerified] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setIsUserVerified(Boolean(data?.emailVerified));
+          } else {
+            setIsUserVerified(user.emailVerified);
+          }
+        } catch {
+          setIsUserVerified(user.emailVerified);
+        }
+      } else {
+        setIsUserVerified(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -155,7 +178,7 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Sign Up submission - initiates 4-character alphanumeric OTP verification session
+  // Handle Sign Up submission - creates user in Auth & Firestore (unverified), then initiates 4-character OTP
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -173,13 +196,41 @@ export default function LoginPage() {
       return;
     }
 
-    // Generate 4-character alphanumeric OTP with both letters and numbers
-    const otp = generateAlphanumericOtp(4);
-    setGeneratedOtp(otp);
-    setOtpValues(["", "", "", ""]);
-    setResendCountdown(30);
-    setAuthMode("verify_otp");
-    setSuccessMessage("Verification code generated. Please verify your email to complete registration.");
+    setIsLoading(true);
+    try {
+      // 1. Create account in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = userCredential.user;
+
+      // 2. Persist user document in Firestore with emailVerified: false
+      await setDoc(
+        doc(db, "users", newUser.uid),
+        {
+          uid: newUser.uid,
+          name: name.trim() || email.split("@")[0],
+          email: email.trim().toLowerCase(),
+          authProvider: "password",
+          emailVerified: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setIsUserVerified(false);
+
+      // 3. Generate 4-character alphanumeric OTP with letters and numbers
+      const otp = generateAlphanumericOtp(4);
+      setGeneratedOtp(otp);
+      setOtpValues(["", "", "", ""]);
+      setResendCountdown(30);
+      setAuthMode("verify_otp");
+      setSuccessMessage("Account created. Please enter the verification code sent to your email.");
+    } catch (err) {
+      setErrorMessage(formatAuthError(err));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle OTP input change
@@ -228,7 +279,7 @@ export default function LoginPage() {
     }, 50);
   };
 
-  // Verify OTP and complete account creation
+  // Verify OTP and update Firestore to emailVerified: true
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -247,8 +298,16 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      setSuccessMessage("Account created successfully! Welcome to OperatSI.");
+      const activeUid = auth.currentUser?.uid;
+      if (activeUid) {
+        // Update user record in Firestore to emailVerified: true
+        await updateDoc(doc(db, "users", activeUid), {
+          emailVerified: true,
+          updatedAt: serverTimestamp(),
+        });
+      }
+      setIsUserVerified(true);
+      setSuccessMessage("Email verified successfully! Your account is active.");
     } catch (err) {
       setErrorMessage(formatAuthError(err));
     } finally {
@@ -278,14 +337,34 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Google Sign In
+  // Handle Google Sign In - saves user data to Firestore with emailVerified: true
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      provider.setCustomParameters({ prompt: "select_account" });
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Save user to Firestore with verified status
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          name: user.displayName || user.email?.split("@")[0] || "User",
+          email: user.email?.toLowerCase() || "",
+          authProvider: "google.com",
+          emailVerified: true,
+          photoURL: user.photoURL || null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setIsUserVerified(true);
       setSuccessMessage("Signed in with Google successfully!");
     } catch (err) {
       setErrorMessage(formatAuthError(err));
@@ -294,14 +373,33 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Apple Sign In
+  // Handle Apple Sign In - saves user data to Firestore with emailVerified: true
   const handleAppleSignIn = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsLoading(true);
     try {
       const provider = new OAuthProvider("apple.com");
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Save user to Firestore with verified status
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          name: user.displayName || user.email?.split("@")[0] || "User",
+          email: user.email?.toLowerCase() || "",
+          authProvider: "apple.com",
+          emailVerified: true,
+          photoURL: user.photoURL || null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setIsUserVerified(true);
       setSuccessMessage("Signed in with Apple successfully!");
     } catch (err) {
       setErrorMessage(formatAuthError(err));
@@ -393,7 +491,9 @@ export default function LoginPage() {
                 {(currentUser.email?.[0] || "U").toUpperCase()}
               </div>
               <div className={styles.userEmail}>{currentUser.email}</div>
-              <div className={styles.workspaceBadge}>OperatSI Platform Core</div>
+              <div className={styles.workspaceBadge}>
+                {isUserVerified ? "Email Verified · Active Workspace" : "Email Unverified · Action Required"}
+              </div>
               <button
                 id="btn-sign-out"
                 className={styles.signOutBtn}

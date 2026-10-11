@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection rules:
+    // Allows each authenticated user to read, create, and update their own user record
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.email is string;
+      allow update: if isOwner(userId)
+                    && request.resource.data.uid == userId;
+      allow delete: if false;
+    }
+
+    // Default catch-all rule: deny access to everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
