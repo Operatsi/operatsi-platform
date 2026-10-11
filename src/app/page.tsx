@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { useTheme } from "../context/ThemeContext";
 import { ThemeToggle } from "../components/ThemeToggle";
 import {
   GoogleIcon,
@@ -34,8 +33,6 @@ import styles from "./page.module.css";
 type AuthMode = "signin" | "signup" | "forgot";
 
 export default function LoginPage() {
-  const { resolvedTheme } = useTheme();
-
   // Mode state: 'signin' | 'signup' | 'forgot'
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
 
@@ -222,9 +219,8 @@ export default function LoginPage() {
     }
   };
 
-  // Determine which logo to use based on resolved theme:
-  // In Dark Mode use /OperatSI_dark.png, in Light Mode use /OperatSI_light.png
-  const logoSrc = resolvedTheme === "dark" ? "/OperatSI_dark.png" : "/OperatSI_light.png";
+  // Unified main logo for all themes (Light and Dark mode)
+  const logoSrc = "/OperatSI.png";
 
   return (
     <div className={styles.pageContainer}>
