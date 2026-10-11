@@ -18,7 +18,9 @@ export const metadata: Metadata = {
   description:
     "Intelligent planning, multi-agent orchestration, cloud browser automation, and autonomous workflow execution by OVIC Labs.",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/OperatSI.png",
+    shortcut: "/OperatSI.png",
+    apple: "/OperatSI.png",
   },
 };
 
