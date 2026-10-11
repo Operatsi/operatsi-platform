@@ -796,7 +796,7 @@ export default function LoginPage() {
           </button>
         </div>
         <div className={styles.footerCopyright}>
-          © 2026 OperatSI Inc. All rights reserved.
+          © 2026 OperatSI Inc. All rights reserved. An OVIC Labs Company
         </div>
       </footer>
 
