@@ -40,15 +40,46 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
   // UI states
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [showStrengthTooltip, setShowStrengthTooltip] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Password validation rules
+  const hasMinLength = password.length >= 6;
+  const hasNumber = /\d/.test(password);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password);
+  const isPasswordGreen = hasMinLength && hasNumber && hasSymbol;
+
+  // Compute strength indicator
+  let strengthFillClass = styles.strengthFillNone;
+  let strengthTextClass = "";
+  let strengthLabel = "Enter password";
+  let strengthPercent = 0;
+
+  if (password.length > 0) {
+    if (isPasswordGreen) {
+      strengthFillClass = styles.strengthFillGreen;
+      strengthTextClass = styles.textGreen;
+      strengthLabel = "Strong (Green)";
+      strengthPercent = 100;
+    } else if (hasMinLength && (hasNumber || hasSymbol)) {
+      strengthFillClass = styles.strengthFillOrange;
+      strengthTextClass = styles.textOrange;
+      strengthLabel = "Medium (Orange)";
+      strengthPercent = 66;
+    } else {
+      strengthFillClass = styles.strengthFillRed;
+      strengthTextClass = styles.textRed;
+      strengthLabel = "Weak (Red)";
+      strengthPercent = 33;
+    }
+  }
 
   // Legal modal state
   const [legalModal, setLegalModal] = useState<LegalDocType>(null);
@@ -120,17 +151,14 @@ export default function LoginPage() {
     setSuccessMessage(null);
 
     if (!email || !password) {
-      setErrorMessage("Please fill in all required fields.");
+      setErrorMessage("Please fill in both email and password.");
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage("Password must be at least 6 characters long.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setErrorMessage("Passwords do not match.");
+    if (!isPasswordGreen) {
+      setErrorMessage(
+        "Password must fulfill all criteria (green progress bar): minimum 6 characters, at least 1 number, and 1 symbol."
+      );
       return;
     }
 
@@ -532,9 +560,11 @@ export default function LoginPage() {
                         id="signup-password"
                         type={showPassword ? "text" : "password"}
                         required
-                        placeholder="At least 6 characters"
+                        placeholder="Create a strong password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        onFocus={() => setIsPasswordFocused(true)}
+                        onBlur={() => setIsPasswordFocused(false)}
                         className={`${styles.input} ${styles.inputWithToggle}`}
                         autoComplete="new-password"
                       />
@@ -548,32 +578,55 @@ export default function LoginPage() {
                         {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                       </button>
                     </div>
-                  </div>
 
-                  <div className={styles.formGroup}>
-                    <label htmlFor="signup-confirm-password" className={styles.label}>
-                      Confirm Password
-                    </label>
-                    <div className={styles.inputWrapper}>
-                      <input
-                        id="signup-confirm-password"
-                        type={showConfirmPassword ? "text" : "password"}
-                        required
-                        placeholder="Re-enter password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`${styles.input} ${styles.inputWithToggle}`}
-                        autoComplete="new-password"
-                      />
-                      <button
-                        id="btn-toggle-confirm-password"
-                        type="button"
-                        className={styles.passwordToggle}
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                      >
-                        {showConfirmPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
-                      </button>
+                    {/* Red / Orange / Green Progress Bar with Hover Requirements Tooltip */}
+                    <div
+                      id="password-strength-container"
+                      className={styles.strengthContainer}
+                      onMouseEnter={() => setShowStrengthTooltip(true)}
+                      onMouseLeave={() => setShowStrengthTooltip(false)}
+                    >
+                      <div className={styles.strengthBarWrapper} title="Password strength indicator">
+                        <div
+                          className={`${styles.strengthBarFill} ${strengthFillClass}`}
+                          style={{ width: `${strengthPercent}%` }}
+                        />
+                      </div>
+
+                      <div className={styles.strengthLabelRow}>
+                        <span className={styles.strengthText}>
+                          Strength: <strong className={strengthTextClass}>{strengthLabel}</strong>
+                        </span>
+                        {isPasswordGreen ? (
+                          <span className={styles.strengthReadyBadge}>✓ Ready to create account</span>
+                        ) : (
+                          <span style={{ fontSize: "0.72rem" }}>Hover for requirements</span>
+                        )}
+                      </div>
+
+                      {/* Requirement Tooltip on hover or focus */}
+                      {(showStrengthTooltip || isPasswordFocused) && (
+                        <div className={styles.strengthTooltip} role="tooltip">
+                          <div className={styles.tooltipTitle}>Password requirements</div>
+                          <div className={`${styles.requirementItem} ${hasMinLength ? styles.met : styles.unmet}`}>
+                            <span>{hasMinLength ? "✓" : "○"}</span>
+                            <span>Minimum 6 characters</span>
+                          </div>
+                          <div className={`${styles.requirementItem} ${hasNumber ? styles.met : styles.unmet}`}>
+                            <span>{hasNumber ? "✓" : "○"}</span>
+                            <span>At least 1 numerical digit (0-9)</span>
+                          </div>
+                          <div className={`${styles.requirementItem} ${hasSymbol ? styles.met : styles.unmet}`}>
+                            <span>{hasSymbol ? "✓" : "○"}</span>
+                            <span>At least 1 symbol / special character (!@#$...)</span>
+                          </div>
+                          {!isPasswordGreen && (
+                            <div className={styles.tooltipHint}>
+                              Progress bar must turn green to create an account.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -581,7 +634,8 @@ export default function LoginPage() {
                     id="btn-submit-signup"
                     type="submit"
                     className={styles.submitBtn}
-                    disabled={isLoading}
+                    disabled={isLoading || !isPasswordGreen}
+                    title={!isPasswordGreen ? "Turn the progress bar green to enable account creation" : "Create account"}
                   >
                     {isLoading ? (
                       <>
@@ -592,6 +646,12 @@ export default function LoginPage() {
                       <span>Create Account</span>
                     )}
                   </button>
+
+                  {!isPasswordGreen && password.length > 0 && (
+                    <div className={styles.disabledButtonNotice}>
+                      Turn the progress bar green to enable account creation
+                    </div>
+                  )}
 
                   <div className={styles.switchModeRow}>
                     Already have an account?{" "}

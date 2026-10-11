@@ -315,6 +315,164 @@
   color: var(--text-primary);
 }
 
+/* Password Strength Progress Bar & Requirement Tooltip */
+.strengthContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+  padding: 0.15rem 0;
+}
+
+.strengthBarWrapper {
+  width: 100%;
+  height: 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 9999px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.strengthBarWrapper:hover {
+  box-shadow: 0 0 0 2px var(--input-focus-ring);
+}
+
+.strengthBarFill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.strengthFillNone {
+  width: 0%;
+  background-color: transparent;
+}
+
+.strengthFillRed {
+  background-color: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.strengthFillOrange {
+  background-color: #f97316;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+}
+
+.strengthFillGreen {
+  background-color: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+}
+
+.strengthLabelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.strengthText strong.textRed {
+  color: #ef4444;
+}
+
+.strengthText strong.textOrange {
+  color: #f97316;
+}
+
+.strengthText strong.textGreen {
+  color: #22c55e;
+}
+
+.strengthReadyBadge {
+  color: #22c55e;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  animation: pulseGreen 2s infinite ease-in-out;
+}
+
+@keyframes pulseGreen {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+.strengthTooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  box-shadow: var(--modal-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 50;
+  animation: tooltipSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+@keyframes tooltipSlide {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltipTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+}
+
+.requirementItem {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  transition: color 0.2s ease;
+}
+
+.requirementItem.met {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.requirementItem.unmet {
+  color: var(--text-muted);
+}
+
+.tooltipHint {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--divider-color);
+  padding-top: 0.35rem;
+}
+
+.disabledButtonNotice {
+  font-size: 0.75rem;
+  color: #ef4444;
+  text-align: center;
+  margin-top: -0.25rem;
+}
+
 /* Checkbox row */
 .checkboxRow {
   display: flex;
