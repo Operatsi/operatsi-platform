@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ThemeToggle } from "../components/ThemeToggle";
 import {
@@ -28,10 +28,28 @@ import {
 } from "firebase/auth";
 import styles from "./page.module.css";
 
-type AuthMode = "signin" | "signup" | "forgot";
+type AuthMode = "signin" | "signup" | "forgot" | "verify_otp";
+
+// Generates a 4-character code containing both alphabets and numbers
+function generateAlphanumericOtp(length = 4): string {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const numbers = "23456789";
+  let result = "";
+  // Guarantee both uppercase letters and numbers are present
+  result += letters.charAt(Math.floor(Math.random() * letters.length));
+  result += numbers.charAt(Math.floor(Math.random() * numbers.length));
+  const pool = letters + numbers;
+  for (let i = 2; i < length; i++) {
+    result += pool.charAt(Math.floor(Math.random() * pool.length));
+  }
+  return result
+    .split("")
+    .sort(() => 0.5 - Math.random())
+    .join("");
+}
 
 export default function LoginPage() {
-  // Mode state: 'signin' | 'signup' | 'forgot'
+  // Mode state: 'signin' | 'signup' | 'forgot' | 'verify_otp'
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
 
   // Form states
@@ -40,6 +58,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
+  // OTP Verification states
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [otpValues, setOtpValues] = useState<string[]>(["", "", "", ""]);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
   // UI states
   const [showPassword, setShowPassword] = useState(false);
   const [isRequirementsOpen, setIsRequirementsOpen] = useState(false);
@@ -47,6 +71,16 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Countdown timer for OTP resend
+  useEffect(() => {
+    if (authMode === "verify_otp" && resendCountdown > 0) {
+      const timer = setTimeout(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [authMode, resendCountdown]);
 
   // Password validation rules
   const hasMinLength = password.length >= 6;
@@ -121,7 +155,7 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Sign Up submission
+  // Handle Sign Up submission - initiates 4-character alphanumeric OTP verification session
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -139,10 +173,82 @@ export default function LoginPage() {
       return;
     }
 
+    // Generate 4-character alphanumeric OTP with both letters and numbers
+    const otp = generateAlphanumericOtp(4);
+    setGeneratedOtp(otp);
+    setOtpValues(["", "", "", ""]);
+    setResendCountdown(30);
+    setAuthMode("verify_otp");
+    setSuccessMessage("Verification code generated. Please verify your email to complete registration.");
+  };
+
+  // Handle OTP input change
+  const handleOtpChange = (index: number, val: string) => {
+    const char = val.slice(-1).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const updated = [...otpValues];
+    updated[index] = char;
+    setOtpValues(updated);
+
+    if (char && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  // Handle OTP backspace navigation
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpValues[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // Handle pasting full 4-character code
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData("text").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!pasteData) return;
+    const updated = [...otpValues];
+    for (let i = 0; i < 4; i++) {
+      updated[i] = pasteData[i] || "";
+    }
+    setOtpValues(updated);
+    const targetIdx = Math.min(pasteData.length, 3);
+    inputRefs.current[targetIdx]?.focus();
+  };
+
+  // Resend OTP code
+  const handleResendOtp = () => {
+    const newCode = generateAlphanumericOtp(4);
+    setGeneratedOtp(newCode);
+    setOtpValues(["", "", "", ""]);
+    setResendCountdown(30);
+    setErrorMessage(null);
+    setSuccessMessage("A new verification code has been generated.");
+    setTimeout(() => {
+      inputRefs.current[0]?.focus();
+    }, 50);
+  };
+
+  // Verify OTP and complete account creation
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const enteredCode = otpValues.join("").toUpperCase();
+    if (enteredCode.length < 4) {
+      setErrorMessage("Please enter all 4 characters of the verification code.");
+      return;
+    }
+
+    if (enteredCode !== generatedOtp.toUpperCase()) {
+      setErrorMessage("Invalid verification code. Please check and try again.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      setSuccessMessage("Account created successfully! Welcome aboard.");
+      setSuccessMessage("Account created successfully! Welcome to OperatSI.");
     } catch (err) {
       setErrorMessage(formatAuthError(err));
     } finally {
@@ -249,6 +355,13 @@ export default function LoginPage() {
                   You are currently signed in to OperatSI.
                 </p>
               </>
+            ) : authMode === "verify_otp" ? (
+              <>
+                <h1 className={styles.cardTitle}>Verify your email</h1>
+                <p className={styles.cardSubtitle}>
+                  Enter the 4-character verification code for <strong>{email}</strong>
+                </p>
+              </>
             ) : authMode === "signin" ? (
               <>
                 <h1 className={styles.cardTitle}>Sign in</h1>
@@ -292,8 +405,8 @@ export default function LoginPage() {
             </div>
           ) : (
             <>
-              {/* Tab Navigation (Sign In vs Create Account) when not in forgot password mode */}
-              {authMode !== "forgot" && (
+              {/* Tab Navigation (Sign In vs Create Account) only in signin/signup modes */}
+              {(authMode === "signin" || authMode === "signup") && (
                 <div className={styles.tabNav} role="tablist">
                   <button
                     id="tab-btn-signin"
@@ -327,7 +440,7 @@ export default function LoginPage() {
               )}
 
               {/* Social Login Options (for sign in and sign up) */}
-              {authMode !== "forgot" && (
+              {(authMode === "signin" || authMode === "signup") && (
                 <>
                   <div className={styles.socialGrid}>
                     <button
@@ -701,6 +814,82 @@ export default function LoginPage() {
                       }}
                     >
                       Sign in
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Verify 4-character Alphanumeric OTP Mode */}
+              {authMode === "verify_otp" && (
+                <form className={styles.form} onSubmit={handleVerifyOtp}>
+                  <div className={styles.otpNoticeBanner}>
+                    <span>Verification code:</span>
+                    <span className={styles.otpCodeBadge}>{generatedOtp}</span>
+                  </div>
+
+                  <div className={styles.otpContainer}>
+                    {otpValues.map((val, idx) => (
+                      <input
+                        key={idx}
+                        ref={(el) => {
+                          inputRefs.current[idx] = el;
+                        }}
+                        id={`otp-input-${idx}`}
+                        type="text"
+                        maxLength={1}
+                        value={val}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        className={`${styles.otpInput} ${val ? styles.otpInputFilled : ""}`}
+                        autoFocus={idx === 0}
+                        autoComplete="one-time-code"
+                      />
+                    ))}
+                  </div>
+
+                  <div className={styles.otpResendRow}>
+                    <span>Didn&apos;t receive the code?</span>
+                    <button
+                      id="btn-resend-otp"
+                      type="button"
+                      className={styles.otpResendBtn}
+                      onClick={handleResendOtp}
+                      disabled={resendCountdown > 0}
+                    >
+                      {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : "Resend code"}
+                    </button>
+                  </div>
+
+                  <button
+                    id="btn-submit-verify-otp"
+                    type="submit"
+                    className={styles.submitBtn}
+                    disabled={isLoading || otpValues.join("").length < 4}
+                  >
+                    {isLoading ? (
+                      <>
+                        <SpinnerIcon size={18} />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <span>Verify and create account</span>
+                    )}
+                  </button>
+
+                  <div className={styles.switchModeRow}>
+                    Entered wrong email?{" "}
+                    <button
+                      id="btn-back-to-signup"
+                      type="button"
+                      className={styles.switchModeBtn}
+                      onClick={() => {
+                        setAuthMode("signup");
+                        setErrorMessage(null);
+                        setSuccessMessage(null);
+                      }}
+                    >
+                      Change email
                     </button>
                   </div>
                 </form>
