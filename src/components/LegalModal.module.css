@@ -22,7 +22,7 @@
 .modalCard {
   background: var(--modal-bg);
   border: 1px solid var(--modal-border);
-  border-radius: 12px;
+  border-radius: 16px;
   max-width: 580px;
   width: 100%;
   max-height: 85vh;
@@ -120,7 +120,7 @@
 .faqItem {
   background: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.75rem 1rem;
   margin-bottom: 0.65rem;
 }
@@ -148,7 +148,7 @@
   background: var(--btn-primary-bg);
   color: var(--btn-primary-text);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.55rem 1.25rem;
   font-size: 0.875rem;
   font-weight: 600;
