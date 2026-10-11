@@ -45,7 +45,6 @@ export default function LoginPage() {
 
   // UI states
   const [showPassword, setShowPassword] = useState(false);
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isRequirementsOpen, setIsRequirementsOpen] = useState(false);
   const [isHoveringProgress, setIsHoveringProgress] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,8 +58,8 @@ export default function LoginPage() {
   const criteriaMetCount = (hasMinLength ? 1 : 0) + (hasNumber ? 1 : 0) + (hasSymbol ? 1 : 0);
   const isPasswordGreen = hasMinLength && hasNumber && hasSymbol;
 
-  // Show requirements popover when clicked, hovered, or focused
-  const showRequirements = isRequirementsOpen || isHoveringProgress || isPasswordFocused;
+  // Show requirements panel only when user explicitly clicks or hovers the progress bar
+  const showRequirements = isRequirementsOpen || isHoveringProgress;
 
   // Legal modal state
   const [legalModal, setLegalModal] = useState<LegalDocType>(null);
@@ -540,8 +539,6 @@ export default function LoginPage() {
                         placeholder="Create a strong password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        onFocus={() => setIsPasswordFocused(true)}
-                        onBlur={() => setIsPasswordFocused(false)}
                         className={`${styles.input} ${styles.inputWithToggle}`}
                         autoComplete="new-password"
                       />
@@ -567,7 +564,7 @@ export default function LoginPage() {
                         onMouseLeave={() => setIsHoveringProgress(false)}
                         aria-expanded={showRequirements}
                         aria-label="Toggle password requirements"
-                        title="Click to view password requirements"
+                        title="Click to toggle requirements checklist"
                       >
                         <div className={styles.strengthSegments}>
                           <div
@@ -610,13 +607,16 @@ export default function LoginPage() {
                               ? "Medium"
                               : "Weak"}
                           </span>
+                          <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                            ({criteriaMetCount} of 3 met)
+                          </span>
                         </div>
                         <button
                           type="button"
                           className={styles.strengthTriggerHint}
                           onClick={() => setIsRequirementsOpen((prev) => !prev)}
                         >
-                          {showRequirements ? "Hide rules ▴" : "Click to view rules ▾"}
+                          {showRequirements ? "Hide checklist ▴" : "View checklist ▾"}
                         </button>
                       </div>
 
