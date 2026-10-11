@@ -43,6 +43,7 @@
 
   --status-red: #dc2626;
   --status-orange: #ea580c;
+  --status-yellow: #eab308;
   --status-green: #16a34a;
 
   --fillg: #ffffff;
@@ -95,6 +96,7 @@ html.light {
 
   --status-red: #dc2626;
   --status-orange: #ea580c;
+  --status-yellow: #ca8a04;
   --status-green: #16a34a;
 
   --fillg: #0f172a;
@@ -146,6 +148,7 @@ html.dark {
 
   --status-red: #dc2626;
   --status-orange: #ea580c;
+  --status-yellow: #eab308;
   --status-green: #16a34a;
 
   --fillg: #ffffff;

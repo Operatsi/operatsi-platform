@@ -548,7 +548,7 @@ export default function LoginPage() {
                       </button>
                     </div>
 
-                    {/* Professional Corporate SaaS Solid 3-Segment Progress Bar */}
+                    {/* Professional Corporate Single Progress Bar */}
                     <div className={styles.strengthSection}>
                       <button
                         id="btn-password-strength-toggle"
@@ -561,59 +561,30 @@ export default function LoginPage() {
                         aria-label="Toggle password requirements"
                         title="Click to toggle requirements checklist"
                       >
-                        <div className={styles.strengthSegments}>
+                        <div className={styles.strengthBarTrack}>
                           <div
-                            className={`${styles.strengthSegment} ${
-                              criteriaMetCount >= 1 ? styles.strengthSegmentRed : ""
+                            className={`${styles.strengthBarFill} ${
+                              criteriaMetCount === 0
+                                ? styles.fillEmpty
+                                : criteriaMetCount === 1
+                                ? styles.fillRed
+                                : criteriaMetCount === 2
+                                ? styles.fillYellow
+                                : styles.fillGreen
                             }`}
-                          />
-                          <div
-                            className={`${styles.strengthSegment} ${
-                              criteriaMetCount >= 2 ? styles.strengthSegmentOrange : ""
-                            }`}
-                          />
-                          <div
-                            className={`${styles.strengthSegment} ${
-                              criteriaMetCount >= 3 ? styles.strengthSegmentGreen : ""
-                            }`}
+                            style={{
+                              width:
+                                criteriaMetCount === 0
+                                  ? "0%"
+                                  : criteriaMetCount === 1
+                                  ? "33.33%"
+                                  : criteriaMetCount === 2
+                                  ? "66.66%"
+                                  : "100%",
+                            }}
                           />
                         </div>
                       </button>
-
-                      <div className={styles.strengthMetaRow}>
-                        <div className={styles.strengthMetaLeft}>
-                          <span>Strength:</span>
-                          <span
-                            className={`${styles.statusPill} ${
-                              password.length === 0
-                                ? styles.statusPillNone
-                                : isPasswordGreen
-                                ? styles.statusPillGreen
-                                : criteriaMetCount === 2
-                                ? styles.statusPillOrange
-                                : styles.statusPillRed
-                            }`}
-                          >
-                            {password.length === 0
-                              ? "Empty"
-                              : isPasswordGreen
-                              ? "Strong"
-                              : criteriaMetCount === 2
-                              ? "Medium"
-                              : "Weak"}
-                          </span>
-                          <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                            ({criteriaMetCount} of 3 met)
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className={styles.strengthTriggerHint}
-                          onClick={() => setIsRequirementsOpen((prev) => !prev)}
-                        >
-                          {showRequirements ? "Hide checklist ▴" : "View checklist ▾"}
-                        </button>
-                      </div>
 
                       {/* Corporate SaaS Requirements Popover Panel */}
                       {showRequirements && (
