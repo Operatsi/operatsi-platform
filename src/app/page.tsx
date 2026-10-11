@@ -12,8 +12,6 @@ import {
   AlertCircleIcon,
   CheckIcon,
   CloseIcon,
-  ShieldCheckIcon,
-  LockIcon,
 } from "../components/Icons";
 import { LegalModal, LegalDocType } from "../components/LegalModal";
 import { auth } from "../lib/firebase";
@@ -224,12 +222,8 @@ export default function LoginPage() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Top Header with Theme Switcher & Status */}
+      {/* Top Header with Theme Switcher */}
       <header className={styles.headerBar}>
-        <div className={styles.headerBrand}>
-          <span className={styles.headerDot} />
-          <span className={styles.headerBrandText}>OperatSI Identity Cloud</span>
-        </div>
         <ThemeToggle />
       </header>
 
@@ -240,45 +234,40 @@ export default function LoginPage() {
           <div className={styles.brandHeader}>
             <div className={styles.logoWrapper}>
               <Image
-                key={logoSrc}
                 src={logoSrc}
-                alt="OperatSI Logo"
-                width={172}
-                height={48}
+                alt="OperatSI"
+                width={160}
+                height={44}
                 priority
                 className={styles.logoImage}
               />
-            </div>
-            <div className={styles.enterprisePill}>
-              <ShieldCheckIcon size={13} />
-              <span>SECURE ENTERPRISE ACCESS</span>
             </div>
             {currentUser ? (
               <>
                 <h1 className={styles.cardTitle}>Workspace Active</h1>
                 <p className={styles.cardSubtitle}>
-                  You are currently authenticated in OperatSI Enterprise Platform.
+                  You are currently signed in to OperatSI.
                 </p>
               </>
             ) : authMode === "signin" ? (
               <>
-                <h1 className={styles.cardTitle}>Sign in to OperatSI</h1>
+                <h1 className={styles.cardTitle}>Sign in</h1>
                 <p className={styles.cardSubtitle}>
-                  Enter your credentials to access your enterprise workspace
+                  Welcome back. Please enter your details.
                 </p>
               </>
             ) : authMode === "signup" ? (
               <>
-                <h1 className={styles.cardTitle}>Create enterprise account</h1>
+                <h1 className={styles.cardTitle}>Create an account</h1>
                 <p className={styles.cardSubtitle}>
-                  Deploy intelligent agents and automate business operations
+                  Enter your details to create your workspace.
                 </p>
               </>
             ) : (
               <>
-                <h1 className={styles.cardTitle}>Reset your password</h1>
+                <h1 className={styles.cardTitle}>Reset password</h1>
                 <p className={styles.cardSubtitle}>
-                  We&apos;ll send recovery instructions to your verified address
+                  Enter your email to receive recovery instructions.
                 </p>
               </>
             )}
@@ -391,7 +380,7 @@ export default function LoginPage() {
                 <form className={styles.form} onSubmit={handleSignIn}>
                   <div className={styles.formGroup}>
                     <label htmlFor="login-email" className={styles.label}>
-                      Work email
+                      Email
                     </label>
                     <div className={styles.inputWrapper}>
                       <input
@@ -473,7 +462,7 @@ export default function LoginPage() {
                         <span>Signing In...</span>
                       </>
                     ) : (
-                      <span>Sign In to OperatSI</span>
+                      <span>Sign in</span>
                     )}
                   </button>
 
@@ -500,7 +489,7 @@ export default function LoginPage() {
                 <form className={styles.form} onSubmit={handleSignUp}>
                   <div className={styles.formGroup}>
                     <label htmlFor="signup-name" className={styles.label}>
-                      Full Name
+                      Full name
                     </label>
                     <div className={styles.inputWrapper}>
                       <input
@@ -517,7 +506,7 @@ export default function LoginPage() {
 
                   <div className={styles.formGroup}>
                     <label htmlFor="signup-email" className={styles.label}>
-                      Work email
+                      Email
                     </label>
                     <div className={styles.inputWrapper}>
                       <input
@@ -542,7 +531,7 @@ export default function LoginPage() {
                         id="signup-password"
                         type={showPassword ? "text" : "password"}
                         required
-                        placeholder="Create a strong password"
+                        placeholder="Create a password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className={`${styles.input} ${styles.inputWithToggle}`}
@@ -710,7 +699,7 @@ export default function LoginPage() {
                     type="submit"
                     className={styles.submitBtn}
                     disabled={isLoading || !isPasswordGreen}
-                    title={!isPasswordGreen ? "All 3 password criteria must be met to enable account creation" : "Create enterprise account"}
+                    title={!isPasswordGreen ? "Please fulfill all 3 password requirements to create an account" : "Create account"}
                   >
                     {isLoading ? (
                       <>
@@ -718,13 +707,13 @@ export default function LoginPage() {
                         <span>Creating Account...</span>
                       </>
                     ) : (
-                      <span>Create Enterprise Account</span>
+                      <span>Create account</span>
                     )}
                   </button>
 
                   {!isPasswordGreen && password.length > 0 && (
                     <div className={styles.disabledButtonNotice}>
-                      All 3 criteria required (green progress bar) to enable account creation
+                      Please fulfill all 3 password requirements to create an account
                     </div>
                   )}
 
@@ -751,14 +740,14 @@ export default function LoginPage() {
                 <form className={styles.form} onSubmit={handleResetPassword}>
                   <div className={styles.formGroup}>
                     <label htmlFor="forgot-email" className={styles.label}>
-                      Registered email address
+                      Email
                     </label>
                     <div className={styles.inputWrapper}>
                       <input
                         id="forgot-email"
                         type="email"
                         required
-                        placeholder="founder@company.com"
+                        placeholder="name@company.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className={styles.input}
@@ -779,7 +768,7 @@ export default function LoginPage() {
                         <span>Sending Link...</span>
                       </>
                     ) : (
-                      <span>Send Recovery Link</span>
+                      <span>Send recovery link</span>
                     )}
                   </button>
 
@@ -802,12 +791,6 @@ export default function LoginPage() {
               )}
             </>
           )}
-
-          {/* Enterprise Security Trust Banner */}
-          <div className={styles.trustBanner}>
-            <LockIcon size={13} />
-            <span>Enterprise-grade 256-bit encryption · SOC 2 compliant</span>
-          </div>
         </div>
       </main>
 
