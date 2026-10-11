@@ -15,10 +15,31 @@
   width: 100%;
   max-width: 1100px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   z-index: 10;
-  padding: 0.25rem 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.headerBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--status-green);
+  display: inline-block;
+}
+
+.headerBrandText {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
 }
 
 /* Main form area */
@@ -64,6 +85,21 @@
   height: 48px;
   width: auto;
   object-fit: contain;
+}
+
+.enterprisePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--brand-accent);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.85rem;
 }
 
 .cardTitle {
@@ -657,12 +693,28 @@
   color: var(--status-red);
 }
 
-/* Footer (Terms, Privacy, Help Center) */
+/* Enterprise Trust Banner inside Card */
+.trustBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--divider-color);
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* Footer (Terms, Privacy, Help Center, Copyright) */
 .footer {
   width: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 0.45rem;
   z-index: 10;
   padding-top: 1.5rem;
 }
@@ -671,7 +723,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  font-size: 0.825rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
   flex-wrap: wrap;
   justify-content: center;
@@ -683,7 +735,7 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 2px 4px;
-  font-size: 0.825rem;
+  font-size: 0.8125rem;
 }
 
 .footerLink:hover {
@@ -694,6 +746,13 @@
 .footerDot {
   color: var(--text-muted);
   opacity: 0.5;
+}
+
+.footerCopyright {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  opacity: 0.8;
 }
 
 @media (max-width: 480px) {
