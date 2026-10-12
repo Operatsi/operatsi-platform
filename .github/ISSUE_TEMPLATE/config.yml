@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Security Vulnerability Report
+    url: https://github.com/Operatsi/operatsi-platform/security/advisories/new
+    about: Please report security vulnerabilities privately via our security advisory or email security@operatsi.com.
+  - name: 💬 Enterprise Support & Questions
+    url: https://github.com/Operatsi/operatsi-platform/discussions
+    about: Ask questions or discuss architecture proposals with the OperatSI team.

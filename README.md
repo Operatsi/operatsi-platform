@@ -1,4 +1,10 @@
-# operatsi-platform
+# OperatSI Platform
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-green.svg)](SECURITY.md)
+[![Code of Conduct](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![Accessibility](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA-success.svg)](ACCESSIBILITY.md)
+[![Dependabot](https://img.shields.io/badge/Dependabot-Active-0366d6.svg?logo=dependabot)](.github/dependabot.yml)
 
 Operatsi is an AI-native business operating platform for intelligent planning, multi-agent orchestration, cloud browser automation, and autonomous workflow execution. Built for founders, teams, and enterprises by OVIC Labs.
 
@@ -7,7 +13,7 @@ Operatsi is an AI-native business operating platform for intelligent planning, m
 - **Framework**: [Next.js](https://nextjs.org) (App Router, Turbopack)
 - **Frontend**: React + TypeScript
 - **Backend / Services**: Firebase (Authentication, Analytics, Firestore)
-- **Styling**: Vanilla CSS
+- **Styling**: Vanilla CSS Modules (Light & Dark Theme Support)
 
 ## Getting Started
 
@@ -52,13 +58,33 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── page.module.css
-│   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   └── terms/
+│   │       ├── page.tsx          # Corporate Terms of Service
+│   │       └── terms.module.css
+│   ├── components/
+│   │   ├── Icons.tsx
+│   │   ├── LegalModal.tsx
+│   │   └── ThemeToggle.tsx
 │   └── lib/
-│       └── firebase.ts       # Firebase app & analytics initialization
+│       └── firebase.ts
 ├── public/
 ├── .env.local
 ├── .env.example
 ├── next.config.ts
 └── tsconfig.json
 ```
+
+## Governance & Repository Protection
+
+OperatSI adheres to enterprise-grade repository governance, community standards, and responsible disclosure:
+
+- 🔒 **[Security Policy](SECURITY.md)** — Vulnerability reporting, SLAs, and responsible disclosure
+- 📜 **[License](LICENSE)** — MIT License with OVIC Labs copyright notice
+- 🤝 **[Code of Conduct](CODE_OF_CONDUCT.md)** — Contributor Covenant v2.1
+- 🛠️ **[Contributing Guide](CONTRIBUTING.md)** — Branch protection, conventional commits, and quality standards
+- ♿ **[Accessibility Statement](ACCESSIBILITY.md)** — WCAG 2.1 AA and Section 508 compliance
+- 💬 **[Support Policy](SUPPORT.md)** — Enterprise and community support guidelines
+- 📄 **[Terms of Service](src/app/terms/page.tsx)** — 25-clause corporate legal terms
+
  

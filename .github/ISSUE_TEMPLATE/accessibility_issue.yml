@@ -1,0 +1,32 @@
+name: "♿ Accessibility Barrier Report"
+description: "Report an accessibility (a11y) barrier or WCAG compliance issue"
+title: "[A11Y]: "
+labels: ["accessibility", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        OperatSI is dedicated to WCAG 2.1 AA compliance. Thank you for helping us identify accessibility barriers! See [ACCESSIBILITY.md](https://github.com/Operatsi/operatsi-platform/blob/main/ACCESSIBILITY.md).
+  - type: textarea
+    id: barrier
+    attributes:
+      label: "Barrier Description"
+      description: "Describe the accessibility issue and how it affects assistive technology users."
+      placeholder: "The focus ring is not visible on..."
+    validations:
+      required: true
+  - type: textarea
+    id: assistive_tech
+    attributes:
+      label: "Assistive Technology Used"
+      description: "Screen reader, keyboard-only, high-contrast mode, zoom magnification, etc."
+      placeholder: "NVDA with Chrome / Keyboard only / VoiceOver on iOS"
+    validations:
+      required: false
+  - type: textarea
+    id: wcag_criterion
+    attributes:
+      label: "Applicable WCAG Criterion (if known)"
+      description: "e.g., 1.4.3 Contrast (Minimum), 2.1.1 Keyboard, 2.4.7 Focus Visible"
+    validations:
+      required: false

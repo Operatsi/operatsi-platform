@@ -1,0 +1,32 @@
+name: "🚀 Feature Request"
+description: "Suggest a new idea or capability for the OperatSI platform"
+title: "[FEATURE]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We welcome proposals to expand OperatSI's autonomous multi-agent and workflow capabilities!
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or Use Case"
+      description: "Is your feature request related to a problem or user challenge?"
+      placeholder: "I find it challenging when trying to..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution"
+      description: "Describe the solution you would like to see."
+      placeholder: "Add support for..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternative Approaches"
+      description: "Describe any alternative solutions or features you've considered."
+    validations:
+      required: false
