@@ -136,13 +136,17 @@ export const LegalModal: React.FC<LegalModalProps> = ({ type, onClose }) => {
         </div>
         <div className={styles.modalScroll}>{current.body}</div>
         <div className={styles.modalFooter}>
-          {type === "terms" ? (
+          {type === "terms" && (
             <Link href="/terms" className={styles.fullPageLink} onClick={onClose}>
               Open Full Document (25 Sections) ↗
             </Link>
-          ) : (
-            <div />
           )}
+          {type === "privacy" && (
+            <Link href="/privacy" className={styles.fullPageLink} onClick={onClose}>
+              Open Full Document (24 Sections) ↗
+            </Link>
+          )}
+          {type !== "terms" && type !== "privacy" && <div />}
           <button id="btn-modal-dismiss" className={styles.dismissBtn} onClick={onClose}>
             Close
           </button>
