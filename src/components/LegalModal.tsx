@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import Link from "next/link";
 import { CloseIcon } from "./Icons";
 import styles from "./LegalModal.module.css";
 
@@ -135,6 +136,13 @@ export const LegalModal: React.FC<LegalModalProps> = ({ type, onClose }) => {
         </div>
         <div className={styles.modalScroll}>{current.body}</div>
         <div className={styles.modalFooter}>
+          {type === "terms" ? (
+            <Link href="/terms" className={styles.fullPageLink} onClick={onClose}>
+              Open Full Document (25 Sections) ↗
+            </Link>
+          ) : (
+            <div />
+          )}
           <button id="btn-modal-dismiss" className={styles.dismissBtn} onClick={onClose}>
             Close
           </button>

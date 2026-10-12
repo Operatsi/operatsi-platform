@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ThemeToggle } from "../components/ThemeToggle";
 import {
   GoogleIcon,
@@ -901,6 +902,22 @@ export default function LoginPage() {
                     </div>
                   )}
 
+                  <p className={styles.termsNoticeText}>
+                    By creating an account, you agree to our{" "}
+                    <Link href="/terms" className={styles.legalInlineLink}>
+                      Terms of Service
+                    </Link>{" "}
+                    and acknowledge our{" "}
+                    <button
+                      type="button"
+                      className={styles.legalInlineBtn}
+                      onClick={() => setLegalModal("privacy")}
+                    >
+                      Privacy Policy
+                    </button>
+                    .
+                  </p>
+
                   <div className={styles.switchModeRow}>
                     Already have an account?{" "}
                     <button
@@ -1057,14 +1074,13 @@ export default function LoginPage() {
       {/* Bottom Center Footer */}
       <footer className={styles.footer}>
         <div className={styles.footerLinks}>
-          <button
+          <Link
             id="link-terms-of-service"
-            type="button"
+            href="/terms"
             className={styles.footerLink}
-            onClick={() => setLegalModal("terms")}
           >
             Terms of Service
-          </button>
+          </Link>
           <span className={styles.footerDot}>·</span>
           <button
             id="link-privacy-policy"
