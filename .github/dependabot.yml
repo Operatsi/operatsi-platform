@@ -13,7 +13,7 @@ updates:
       time: "04:00"
       timezone: "Asia/Kolkata"
     open-pull-requests-limit: 10
-    target-branch: "master"
+    target-branch: "main"
     reviewers:
       - "bungakarunanidhi"
       - "Navyal7"
@@ -55,7 +55,7 @@ updates:
       time: "04:00"
       timezone: "Asia/Kolkata"
     open-pull-requests-limit: 5
-    target-branch: "master"
+    target-branch: "main"
     reviewers:
       - "bungakarunanidhi"
       - "Navyal7"
