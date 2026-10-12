@@ -1166,6 +1166,9 @@ export default function TermsOfServicePage() {
               <Link href="/terms" className={styles.footerLink}>
                 Terms of Service
               </Link>
+              <Link href="/privacy" className={styles.footerLink}>
+                Privacy Policy
+              </Link>
               <a href="mailto:support@operatsi.com" className={styles.footerLink}>
                 Help & Support
               </a>

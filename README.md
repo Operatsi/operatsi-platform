@@ -86,5 +86,6 @@ OperatSI adheres to enterprise-grade repository governance, community standards,
 - ♿ **[Accessibility Statement](ACCESSIBILITY.md)** — WCAG 2.1 AA and Section 508 compliance
 - 💬 **[Support Policy](SUPPORT.md)** — Enterprise and community support guidelines
 - 📄 **[Terms of Service](src/app/terms/page.tsx)** — 25-clause corporate legal terms
+- 🛡️ **[Privacy Policy](src/app/privacy/page.tsx)** — 24-clause corporate privacy policy
 
  

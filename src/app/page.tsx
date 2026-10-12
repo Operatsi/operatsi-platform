@@ -908,13 +908,9 @@ export default function LoginPage() {
                       Terms of Service
                     </Link>{" "}
                     and acknowledge our{" "}
-                    <button
-                      type="button"
-                      className={styles.legalInlineBtn}
-                      onClick={() => setLegalModal("privacy")}
-                    >
+                    <Link href="/privacy" className={styles.legalInlineLink}>
                       Privacy Policy
-                    </button>
+                    </Link>
                     .
                   </p>
 
@@ -1082,14 +1078,13 @@ export default function LoginPage() {
             Terms of Service
           </Link>
           <span className={styles.footerDot}>·</span>
-          <button
+          <Link
             id="link-privacy-policy"
-            type="button"
+            href="/privacy"
             className={styles.footerLink}
-            onClick={() => setLegalModal("privacy")}
           >
             Privacy Policy
-          </button>
+          </Link>
           <span className={styles.footerDot}>·</span>
           <button
             id="link-help-center"
