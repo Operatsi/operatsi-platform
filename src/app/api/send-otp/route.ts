@@ -16,15 +16,32 @@ export async function POST(req: Request) {
     const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_SERVER_PASSWORD || process.env.GMAIL_APP_PASSWORD;
     const fromEmail = process.env.SMTP_FROM || process.env.EMAIL_FROM || "no-reply@operatsi.com";
 
+    // Resolve clean display name
+    const rawPrefix = email.split("@")[0] || "User";
+    const parts = rawPrefix.split(/[._-]/).filter(Boolean);
+    const capitalizedFallback = parts
+      .map((p: string) => p.replace(/[0-9]/g, ""))
+      .filter((p: string) => p.length > 0)
+      .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(" ") || rawPrefix;
+    const resolvedName = (name && name.trim()) ? name.trim() : capitalizedFallback;
+
     const emailHtml = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px;">
         <div style="text-align: center; margin-bottom: 24px;">
           <h2 style="color: #0f172a; margin: 0 0 8px; font-size: 22px; font-weight: 700;">OperatSI Workspace Activation</h2>
           <p style="color: #64748b; font-size: 14px; margin: 0;">An OVIC Labs Company</p>
         </div>
-        <p style="color: #334155; font-size: 15px; line-height: 1.5;">Hello${name ? ` ${name}` : ""},</p>
-        <p style="color: #334155; font-size: 15px; line-height: 1.5;">Your 5-digit security code to activate your OperatSI workspace is:</p>
-        <div style="margin: 28px 0; text-align: center;">
+        
+        <!-- User Profile Strip: User Name at top, Email below -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; margin: 18px 0 24px; text-align: left;">
+          <div style="font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">${resolvedName}</div>
+          <div style="font-size: 13px; color: #64748b;">${email}</div>
+        </div>
+
+        <p style="color: #334155; font-size: 15px; line-height: 1.5; margin: 0 0 12px;">Hello ${resolvedName},</p>
+        <p style="color: #334155; font-size: 15px; line-height: 1.5; margin: 0 0 20px;">Your 5-digit security code to activate your OperatSI workspace is:</p>
+        <div style="margin: 24px 0; text-align: center;">
           <span style="display: inline-block; background: #2563eb; color: #ffffff; font-size: 32px; font-weight: 800; letter-spacing: 8px; padding: 14px 28px; border-radius: 10px; font-family: monospace;">${otp}</span>
         </div>
         <p style="color: #64748b; font-size: 13px; line-height: 1.5;">This code will expire in 10 minutes. If you did not request this verification code, please ignore this email or contact support@operatsi.com.</p>

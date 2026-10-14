@@ -708,10 +708,18 @@
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
-.userEmail {
-  font-size: 0.95rem;
-  font-weight: 600;
+.userName {
+  font-size: 1.15rem;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin-bottom: 3px;
+}
+
+.userEmail {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .workspaceBadge {

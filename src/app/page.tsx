@@ -19,6 +19,7 @@ import { auth, db } from "../lib/firebase";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  updateProfile,
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithPopup,
@@ -93,7 +94,47 @@ export default function LoginPage() {
 
   // Auth session & verification states
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [userName, setUserName] = useState<string>("");
   const [isUserVerified, setIsUserVerified] = useState(false);
+
+  // Resolves the User's display name: stored name -> displayName -> formatted name from email
+  const formatDisplayName = (user: User | null, stored?: string): string => {
+    // 1. If explicit stored name exists from Firestore and is a real name (not just raw email handle)
+    if (stored && stored.trim()) {
+      const sName = stored.trim();
+      const emailPrefix = user?.email?.split("@")[0] || "";
+      if (sName !== emailPrefix && !sName.includes("@")) {
+        return sName;
+      }
+    }
+    // 2. If Auth displayName exists and is not raw email prefix
+    if (user?.displayName && user.displayName.trim()) {
+      const dName = user.displayName.trim();
+      const emailPrefix = user?.email?.split("@")[0] || "";
+      if (dName !== emailPrefix && !dName.includes("@")) {
+        return dName;
+      }
+    }
+    // 3. Intelligently format from email handle (e.g. "krishanth.b.2008" -> "Krishanth B")
+    const rawSource = (stored && stored.trim()) || user?.displayName || user?.email?.split("@")[0] || "";
+    if (rawSource) {
+      const cleaned = rawSource.split("@")[0];
+      const parts = cleaned.split(/[._-]/).filter(Boolean);
+      const formattedParts = parts
+        .map((p) => p.replace(/[0-9]/g, ""))
+        .filter((p) => p.length > 0)
+        .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+
+      if (formattedParts.length > 0) {
+        return formattedParts.join(" ");
+      }
+      return cleaned;
+    }
+    return "OperatSI User";
+  };
+
+  // Active resolved User Name for all cards and dashboards
+  const activeUserName = formatDisplayName(currentUser, userName || name);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -104,6 +145,9 @@ export default function LoginPage() {
           if (userDoc.exists()) {
             const data = userDoc.data();
             setIsUserVerified(Boolean(data?.emailVerified));
+            if (data?.name) {
+              setUserName(data.name);
+            }
           } else {
             setIsUserVerified(user.emailVerified);
           }
@@ -112,6 +156,7 @@ export default function LoginPage() {
         }
       } else {
         setIsUserVerified(false);
+        setUserName("");
       }
     });
     return () => unsubscribe();
@@ -132,12 +177,12 @@ export default function LoginPage() {
           body: JSON.stringify({
             email: currentUser.email,
             otp: code,
-            name: currentUser.displayName || currentUser.email.split("@")[0],
+            name: activeUserName,
           }),
         }).catch((err) => console.warn("Auto-dispatch OTP email error:", err));
       }
     }
-  }, [currentUser, isUserVerified, generatedOtp]);
+  }, [currentUser, isUserVerified, generatedOtp, activeUserName]);
 
   // Format Firebase Auth errors into friendly messages
   const formatAuthError = (err: unknown): string => {
@@ -213,12 +258,24 @@ export default function LoginPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
+      const resolvedSignUpName = name.trim() || formatDisplayName(newUser);
+
+      if (name.trim()) {
+        try {
+          await updateProfile(newUser, { displayName: name.trim() });
+        } catch (profileErr) {
+          console.warn("updateProfile error:", profileErr);
+        }
+      }
+
+      setUserName(resolvedSignUpName);
+
       // 2. Persist user document in Firestore with emailVerified: false
       await setDoc(
         doc(db, "users", newUser.uid),
         {
           uid: newUser.uid,
-          name: name.trim() || email.split("@")[0],
+          name: resolvedSignUpName,
           email: email.trim().toLowerCase(),
           authProvider: "password",
           emailVerified: false,
@@ -242,7 +299,7 @@ export default function LoginPage() {
         await fetch("/api/send-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim(), otp, name: name.trim() }),
+          body: JSON.stringify({ email: email.trim(), otp, name: resolvedSignUpName }),
         });
       } catch (fetchErr) {
         console.warn("send-otp api call:", fetchErr);
@@ -305,7 +362,7 @@ export default function LoginPage() {
           body: JSON.stringify({
             email: targetEmail.trim(),
             otp: freshOtp,
-            name: targetUser?.displayName || name,
+            name: activeUserName,
           }),
         });
       } catch (apiErr) {
@@ -591,11 +648,11 @@ export default function LoginPage() {
                 <div className={styles.dashboardHeader}>
                   <div className={styles.dashboardHeaderInfo}>
                     <div className={styles.dashboardHeaderAvatar}>
-                      {(currentUser.email?.[0] || "U").toUpperCase()}
+                      {(activeUserName?.[0] || currentUser.email?.[0] || "U").toUpperCase()}
                     </div>
                     <div>
                       <div className={styles.dashboardHeaderTitle}>
-                        {currentUser.displayName || currentUser.email?.split("@")[0] || "OperatSI Workspace"}
+                        {activeUserName}
                       </div>
                       <div className={styles.dashboardHeaderSubtitle}>{currentUser.email}</div>
                     </div>
@@ -688,9 +745,12 @@ export default function LoginPage() {
               /* UNVERIFIED: 5-Digit OTP Activation Screen */
               <div className={styles.userSessionCard}>
                 <div className={styles.userAvatar}>
-                  {(currentUser.email?.[0] || "U").toUpperCase()}
+                  {(activeUserName?.[0] || currentUser.email?.[0] || "U").toUpperCase()}
                 </div>
-                <div className={styles.userEmail}>{currentUser.email}</div>
+                <div style={{ textAlign: "center", marginBottom: "0.25rem" }}>
+                  <div className={styles.userName}>{activeUserName}</div>
+                  <div className={styles.userEmail}>{currentUser.email}</div>
+                </div>
                 <div className={`${styles.workspaceBadge} ${styles.badgeUnverified}`}>
                   <span className={styles.pulseDot} />
                   <span>Email Unverified · Action Required</span>
