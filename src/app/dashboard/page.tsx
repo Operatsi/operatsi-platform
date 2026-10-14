@@ -836,10 +836,7 @@ interface NavItem {
                     {/* General Settings: Identity & Contact Information */}
                     <div className={styles.settingsCard}>
                       <div className={styles.settingsCardHeader}>
-                        <h2 className={styles.settingsCardTitle}>General Settings</h2>
-                        <p className={styles.settingsCardSubtitle}>
-                          Manage your profile identity, contact credentials, and communication preferences.
-                        </p>
+                        <h2 className={styles.settingsCardTitle}>General</h2>
                       </div>
 
                       {/* Locked Identity Fields: User Name & User Email Address (CANNOT CHANGE) */}
@@ -851,8 +848,8 @@ interface NavItem {
                               User Name
                             </label>
                             <span className={styles.readOnlyBadge}>
-                              <LockIcon size={11} />
-                              <span>Read-only</span>
+                              <LockIcon size={10} />
+                              <span>Locked</span>
                             </span>
                           </div>
                           <div className={styles.lockedInputWrapper}>
@@ -863,25 +860,22 @@ interface NavItem {
                               value={activeUserName}
                               readOnly
                               disabled
-                              title="User Name is governed by enterprise credentials and cannot be edited"
+                              title="User Name is locked and cannot be edited"
                             />
                             <div className={styles.lockIconAdornment}>
-                              <LockIcon size={15} />
+                              <LockIcon size={14} />
                             </div>
                           </div>
-                          <p className={styles.fieldHelperText}>
-                            Legal full name registered with your enterprise workspace.
-                          </p>
                         </div>
 
                         {/* 2. User Email Address (LOCKED / CANNOT CHANGE) */}
                         <div className={styles.settingsFormGroup}>
                           <div className={styles.settingsLabelRow}>
                             <label className={styles.settingsLabel} htmlFor="settings-user-email">
-                              User Email Address
+                              Email Address
                             </label>
                             <span className={styles.verifiedBadge}>
-                              <CheckIcon size={12} />
+                              <CheckIcon size={11} />
                               <span>Verified</span>
                             </span>
                           </div>
@@ -893,123 +887,134 @@ interface NavItem {
                               value={activeUserEmail}
                               readOnly
                               disabled
-                              title="User Email Address is governed by enterprise credentials and cannot be edited"
+                              title="User Email Address is locked and cannot be edited"
                             />
                             <div className={styles.lockIconAdornment}>
-                              <LockIcon size={15} />
+                              <LockIcon size={14} />
                             </div>
                           </div>
-                          <p className={styles.fieldHelperText}>
-                            Authentication email address linked to your OperatSI account.
-                          </p>
                         </div>
                       </div>
 
                       {/* 3. Mobile Number (EDITABLE & SAVED TO FIRESTORE WITH CUSTOM COUNTRY SELECTOR) */}
-                      <form onSubmit={handleSavePhone} className={styles.settingsFormGroup} style={{ marginTop: "0.25rem" }}>
+                      <form onSubmit={handleSavePhone} className={styles.settingsFormGroup}>
                         <div className={styles.settingsLabelRow}>
                           <label className={styles.settingsLabel} htmlFor="settings-mobile-phone">
                             Mobile Number
                           </label>
-                          <span style={{ fontSize: "0.75rem", color: "var(--brand-accent)", fontWeight: 600 }}>
-                            Firestore Database
-                          </span>
                         </div>
 
-                        {/* Custom Corporate Country Code Selector & Input Group */}
-                        <div className={styles.phoneInputGroup}>
-                          {/* Custom Country Selector Trigger Button */}
-                          <div ref={countryDropdownRef} style={{ position: "relative" }}>
-                            <button
-                              id="country-selector-trigger"
-                              type="button"
-                              className={styles.countrySelectorBtn}
-                              onClick={() => {
-                                setIsCountryDropdownOpen((prev) => !prev);
-                                setCountrySearch("");
-                              }}
-                              aria-haspopup="listbox"
-                              aria-expanded={isCountryDropdownOpen}
-                              title="Select Country Code"
-                            >
-                              <span className={styles.countryFlag}>{selectedCountry.flag}</span>
-                              <span className={styles.countryDialCode}>{selectedCountry.dialCode}</span>
-                              <span
-                                className={`${styles.countryChevron} ${
-                                  isCountryDropdownOpen ? styles.countryChevronOpen : ""
-                                }`}
+                        {/* Custom Country Code Selector & Compact Input Row */}
+                        <div className={styles.phoneInputRow}>
+                          <div className={styles.phoneInputGroup}>
+                            {/* Custom Country Selector Trigger Button */}
+                            <div ref={countryDropdownRef} style={{ position: "relative" }}>
+                              <button
+                                id="country-selector-trigger"
+                                type="button"
+                                className={styles.countrySelectorBtn}
+                                onClick={() => {
+                                  setIsCountryDropdownOpen((prev) => !prev);
+                                  setCountrySearch("");
+                                }}
+                                aria-haspopup="listbox"
+                                aria-expanded={isCountryDropdownOpen}
+                                title="Select Country Code"
                               >
-                                <ChevronRightIcon size={12} style={{ transform: "rotate(90deg)" }} />
-                              </span>
-                            </button>
+                                <span className={styles.countryFlag}>{selectedCountry.flag}</span>
+                                <span className={styles.countryDialCode}>{selectedCountry.dialCode}</span>
+                                <span
+                                  className={`${styles.countryChevron} ${
+                                    isCountryDropdownOpen ? styles.countryChevronOpen : ""
+                                  }`}
+                                >
+                                  <ChevronRightIcon size={11} style={{ transform: "rotate(90deg)" }} />
+                                </span>
+                              </button>
 
-                            {/* Floating Custom Country Dropdown Menu */}
-                            {isCountryDropdownOpen && (
-                              <div className={styles.countryDropdownMenu} role="listbox">
-                                <div className={styles.countrySearchBox}>
-                                  <SearchIcon size={14} style={{ color: "var(--text-muted)" }} />
-                                  <input
-                                    type="text"
-                                    placeholder="Search country or code..."
-                                    value={countrySearch}
-                                    onChange={(e) => setCountrySearch(e.target.value)}
-                                    className={styles.countrySearchInput}
-                                    autoFocus
-                                  />
-                                </div>
+                              {/* Floating Custom Country Dropdown Menu */}
+                              {isCountryDropdownOpen && (
+                                <div className={styles.countryDropdownMenu} role="listbox">
+                                  <div className={styles.countrySearchBox}>
+                                    <SearchIcon size={13} style={{ color: "var(--text-muted)" }} />
+                                    <input
+                                      type="text"
+                                      placeholder="Search country..."
+                                      value={countrySearch}
+                                      onChange={(e) => setCountrySearch(e.target.value)}
+                                      className={styles.countrySearchInput}
+                                      autoFocus
+                                    />
+                                  </div>
 
-                                <div className={styles.countryList}>
-                                  {COUNTRIES.filter(
-                                    (c) =>
-                                      c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-                                      c.dialCode.includes(countrySearch) ||
-                                      c.code.toLowerCase().includes(countrySearch.toLowerCase())
-                                  ).map((country) => {
-                                    const isSelected = selectedCountry.code === country.code;
-                                    return (
-                                      <button
-                                        key={country.code}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={isSelected}
-                                        className={`${styles.countryOption} ${
-                                          isSelected ? styles.countryOptionSelected : ""
-                                        }`}
-                                        onClick={() => {
-                                          setSelectedCountry(country);
-                                          setIsCountryDropdownOpen(false);
-                                        }}
-                                      >
-                                        <span className={styles.countryFlag}>{country.flag}</span>
-                                        <span className={styles.countryOptionName}>{country.name}</span>
-                                        <span className={styles.countryOptionDial}>{country.dialCode}</span>
-                                        {isSelected && <CheckIcon size={14} />}
-                                      </button>
-                                    );
-                                  })}
+                                  <div className={styles.countryList}>
+                                    {COUNTRIES.filter(
+                                      (c) =>
+                                        c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+                                        c.dialCode.includes(countrySearch) ||
+                                        c.code.toLowerCase().includes(countrySearch.toLowerCase())
+                                    ).map((country) => {
+                                      const isSelected = selectedCountry.code === country.code;
+                                      return (
+                                        <button
+                                          key={country.code}
+                                          type="button"
+                                          role="option"
+                                          aria-selected={isSelected}
+                                          className={`${styles.countryOption} ${
+                                            isSelected ? styles.countryOptionSelected : ""
+                                          }`}
+                                          onClick={() => {
+                                            setSelectedCountry(country);
+                                            setIsCountryDropdownOpen(false);
+                                          }}
+                                        >
+                                          <span className={styles.countryFlag}>{country.flag}</span>
+                                          <span className={styles.countryOptionName}>{country.name}</span>
+                                          <span className={styles.countryOptionDial}>{country.dialCode}</span>
+                                          {isSelected && <CheckIcon size={13} />}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
+                            </div>
+
+                            {/* National Phone Number Input */}
+                            <input
+                              id="settings-mobile-phone"
+                              type="tel"
+                              inputMode="tel"
+                              placeholder="Enter mobile number"
+                              value={phoneNational}
+                              onChange={(e) => setPhoneNational(e.target.value)}
+                              className={styles.phoneInput}
+                              autoComplete="tel-national"
+                            />
                           </div>
 
-                          {/* National Phone Number Input */}
-                          <input
-                            id="settings-mobile-phone"
-                            type="tel"
-                            inputMode="tel"
-                            placeholder="Enter mobile number"
-                            value={phoneNational}
-                            onChange={(e) => setPhoneNational(e.target.value)}
-                            className={styles.phoneInput}
-                            autoComplete="tel-national"
-                          />
+                          {/* Compact Cute Save Button */}
+                          <button
+                            type="submit"
+                            className={styles.savePhoneBtn}
+                            disabled={isSavingPhone}
+                          >
+                            {isSavingPhone ? (
+                              <>
+                                <SpinnerIcon size={13} />
+                                <span>Saving...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckIcon size={13} />
+                                <span>Save</span>
+                              </>
+                            )}
+                          </button>
                         </div>
 
-                        <p className={styles.fieldHelperText}>
-                          Used for multi-factor SMS verification and critical workspace alerts.
-                        </p>
-
-                        {/* Save Feedback Alerts */}
+                        {/* Save Feedback Alert */}
                         {phoneMessage && (
                           <div
                             className={
@@ -1018,60 +1023,32 @@ interface NavItem {
                             role={phoneMessage.type === "success" ? "status" : "alert"}
                           >
                             {phoneMessage.type === "success" ? (
-                              <CheckIcon size={16} />
+                              <CheckIcon size={13} />
                             ) : (
-                              <ShieldCheckIcon size={16} />
+                              <AlertCircleIcon size={13} />
                             )}
                             <span>{phoneMessage.text}</span>
                           </div>
                         )}
-
-                        {/* Save Button */}
-                        <button
-                          type="submit"
-                          className={styles.savePhoneBtn}
-                          disabled={isSavingPhone}
-                        >
-                          {isSavingPhone ? (
-                            <>
-                              <SpinnerIcon size={16} />
-                              <span>Saving to Firestore...</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckIcon size={16} />
-                              <span>Save Mobile Number</span>
-                            </>
-                          )}
-                        </button>
                       </form>
                     </div>
 
-                    {/* Danger Zone: Delete Account Card */}
+                    {/* Danger Zone: Delete Account Card (Compact & Cute) */}
                     <div className={styles.dangerCard}>
                       <div className={styles.dangerCardHeader}>
                         <h3 className={styles.dangerCardTitle}>
-                          <TrashIcon size={20} />
+                          <TrashIcon size={15} />
                           <span>Delete Account</span>
                         </h3>
-                        <p className={styles.dangerCardSubtitle}>
-                          Permanently delete your account, profile data, workspace connections, and all associated Firebase records.
-                        </p>
                       </div>
-
-                      <div className={styles.dangerActionRow}>
-                        <p className={styles.dangerNotice}>
-                          Once initiated, you will have a 20-second safety window to cancel. After 20 seconds, your authentication profile, user activities, and data will be permanently wiped from Firebase.
-                        </p>
-                        <button
-                          type="button"
-                          className={styles.deleteInitiateBtn}
-                          onClick={handleOpenDeleteModal}
-                        >
-                          <TrashIcon size={16} />
-                          <span>Delete Account</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        className={styles.deleteInitiateBtn}
+                        onClick={handleOpenDeleteModal}
+                      >
+                        <TrashIcon size={13} />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </>
                 )}
@@ -1080,16 +1057,13 @@ interface NavItem {
                 {settingsTab === "security" && (
                   <div className={styles.settingsCard}>
                     <div className={styles.settingsCardHeader}>
-                      <h2 className={styles.settingsCardTitle}>Security &amp; Access Controls</h2>
-                      <p className={styles.settingsCardSubtitle}>
-                        Configure session timeouts, multi-factor authentication, and security audit logs.
-                      </p>
+                      <h2 className={styles.settingsCardTitle}>Security</h2>
                     </div>
                     <div className={styles.settingsFormGroup}>
-                      <span className={styles.settingsLabel}>Compliance Level</span>
-                      <div className={styles.statusPill} style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}>
+                      <span className={styles.settingsLabel}>Compliance</span>
+                      <div className={styles.statusPill} style={{ alignSelf: "flex-start" }}>
                         <span className={styles.pulseDot} />
-                        <span>SOC2 Type II Certified · Continuous Monitoring Active</span>
+                        <span>SOC2 Type II Certified</span>
                       </div>
                     </div>
                   </div>
@@ -1099,10 +1073,7 @@ interface NavItem {
                 {settingsTab === "policies" && (
                   <div className={styles.settingsCard}>
                     <div className={styles.settingsCardHeader}>
-                      <h2 className={styles.settingsCardTitle}>Agent Execution Policies</h2>
-                      <p className={styles.settingsCardSubtitle}>
-                        Control concurrency limits, automated self-healing, and cloud sandbox quotas.
-                      </p>
+                      <h2 className={styles.settingsCardTitle}>Policies</h2>
                     </div>
                     <div className={styles.settingsFormRow}>
                       <div className={styles.settingsFormGroup}>
@@ -1110,7 +1081,7 @@ interface NavItem {
                         <input type="number" className={styles.lockedInput} defaultValue={10} />
                       </div>
                       <div className={styles.settingsFormGroup}>
-                        <label className={styles.settingsLabel}>Task Execution Timeout (seconds)</label>
+                        <label className={styles.settingsLabel}>Timeout (seconds)</label>
                         <input type="number" className={styles.lockedInput} defaultValue={300} />
                       </div>
                     </div>
@@ -1121,13 +1092,10 @@ interface NavItem {
                 {settingsTab === "api" && (
                   <div className={styles.settingsCard}>
                     <div className={styles.settingsCardHeader}>
-                      <h2 className={styles.settingsCardTitle}>API Keys &amp; Webhooks</h2>
-                      <p className={styles.settingsCardSubtitle}>
-                        Integrate external telemetry, webhook subscriptions, and orchestrator triggers.
-                      </p>
+                      <h2 className={styles.settingsCardTitle}>API Keys</h2>
                     </div>
                     <div className={styles.settingsFormGroup}>
-                      <label className={styles.settingsLabel}>Live Production API Key</label>
+                      <label className={styles.settingsLabel}>Production Key</label>
                       <input
                         type="password"
                         className={styles.lockedInput}
