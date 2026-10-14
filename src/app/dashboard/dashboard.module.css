@@ -817,34 +817,103 @@
 }
 
 /* =========================================================
-   4. SETTINGS VIEW (WHEN SETTINGS IS SELECTED)
+   4. SETTINGS VIEW (PROFESSIONAL CORPORATE SETTINGS WITH LEFT SUB-MENU)
    ========================================================= */
-.settingsView {
+.settingsLayout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.75rem;
+  align-items: flex-start;
+}
+
+/* Left Sub-Menu for Settings */
+.settingsSubNav {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: sticky;
+  top: 84px;
+}
+
+.settingsSubNavHeader {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem 0.5rem;
+}
+
+.settingsSubNavItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.settingsSubNavItem:hover {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.settingsSubNavItemActive {
+  background-color: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+/* Settings Content Panel */
+.settingsContent {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
 }
 
 .settingsCard {
   background-color: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 14px;
-  padding: 1.5rem 1.75rem;
+  padding: 1.75rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
+}
+
+.settingsCardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 1rem;
 }
 
 .settingsCardTitle {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 0.25rem;
+  letter-spacing: -0.01em;
 }
 
 .settingsCardSubtitle {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 .settingsFormRow {
@@ -857,6 +926,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  position: relative;
+}
+
+.settingsLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .settingsLabel {
@@ -865,18 +941,313 @@
   color: var(--text-primary);
 }
 
-.settingsInput {
+.readOnlyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background-color: rgba(100, 116, 139, 0.12);
+  border: 1px solid rgba(100, 116, 139, 0.25);
+  color: var(--text-muted);
+}
+
+.verifiedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background-color: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  color: #16a34a;
+}
+
+/* Locked / Non-editable Inputs */
+.lockedInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.lockedInput {
+  background-color: rgba(11, 15, 25, 0.4);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 0.65rem 2.25rem 0.65rem 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  width: 100%;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+:global([data-theme="light"]) .lockedInput,
+:global(html.light) .lockedInput {
+  background-color: rgba(241, 245, 249, 0.7);
+}
+
+.lockIconAdornment {
+  position: absolute;
+  right: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.fieldHelperText {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* =========================================================
+   CUSTOM CORPORATE COUNTRY CODE SELECTOR & PHONE INPUT GROUP
+   ========================================================= */
+.phoneInputGroup {
+  display: flex;
+  align-items: stretch;
   background-color: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: 8px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.phoneInputGroup:focus-within {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 2px var(--input-focus-ring);
+}
+
+/* Custom Country Dropdown Trigger Button */
+.countrySelectorBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--input-border);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+  border-top-left-radius: 7px;
+  border-bottom-left-radius: 7px;
+}
+
+.countrySelectorBtn:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+:global([data-theme="light"]) .countrySelectorBtn:hover,
+:global(html.light) .countrySelectorBtn:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.countryFlag {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.countryDialCode {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.countryChevron {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.countryChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Floating Custom Dropdown Menu */
+.countryDropdownMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 320px;
+  max-width: 90vw;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  animation: dropdownIn 0.15s ease;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.countrySearchBox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+}
+
+.countrySearchInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  width: 100%;
+}
+
+.countryList {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 2px;
+}
+
+.countryList::-webkit-scrollbar {
+  width: 5px;
+}
+
+.countryList::-webkit-scrollbar-thumb {
+  background-color: var(--card-border);
+  border-radius: 4px;
+}
+
+.countryOption {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s ease;
+  width: 100%;
+}
+
+.countryOption:hover {
+  background-color: var(--input-bg);
+}
+
+.countryOptionSelected {
+  background-color: rgba(37, 99, 235, 0.12);
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+.countryOptionName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.countryOptionDial {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.countryOptionSelected .countryOptionDial {
+  color: var(--brand-accent);
+}
+
+/* National Phone Input */
+.phoneInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
   padding: 0.65rem 0.85rem;
   color: var(--text-primary);
   font-size: 0.875rem;
-  outline: none;
 }
 
-.settingsInput:focus {
-  border-color: var(--brand-accent);
+.phoneInput::placeholder {
+  color: var(--input-placeholder);
+}
+
+/* Save Phone Button & Feedback */
+.savePhoneBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: var(--brand-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+  align-self: flex-start;
+}
+
+.savePhoneBtn:hover:not(:disabled) {
+  background-color: var(--btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+.savePhoneBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.phoneAlertSuccess {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  background-color: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  color: #16a34a;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.phoneAlertError {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  background-color: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: var(--status-red);
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 
 /* Responsive adjustments */
