@@ -721,15 +721,13 @@ export default function LoginPage() {
 
                 {/* Dashboard Action Group */}
                 <div className={styles.dashboardActionGroup}>
-                  <button
-                    type="button"
+                  <Link
+                    href="/dashboard"
                     className={styles.submitBtn}
-                    onClick={() => {
-                      alert("Opening OperatSI Multi-Agent Console...");
-                    }}
+                    style={{ textDecoration: "none", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
                     Enter Platform Console →
-                  </button>
+                  </Link>
                   <button
                     id="btn-sign-out"
                     type="button"

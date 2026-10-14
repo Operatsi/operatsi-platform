@@ -1,0 +1,904 @@
+/* Dashboard Layout & Container Styles */
+.dashboardContainer {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: inherit;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* =========================================================
+   1. LEFT MENU (SIDEBAR)
+   ========================================================= */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--card-bg);
+  border-right: 1px solid var(--card-border);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.sidebarOpen {
+  width: 260px;
+}
+
+.sidebarClosed {
+  width: 74px;
+}
+
+/* Sidebar Header / Brand */
+.sidebarHeader {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--card-border);
+  gap: 0.5rem;
+}
+
+.brandLink {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.brandLogoWrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--brand-accent), #1d4ed8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: opacity 0.2s ease, width 0.2s ease;
+}
+
+.brandTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.brandBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--brand-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.toggleSidebarBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toggleSidebarBtn:hover {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  border-color: var(--brand-accent);
+}
+
+/* Sidebar Nav */
+.sidebarNav {
+  flex: 1;
+  padding: 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebarSectionTitle {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem 0.25rem;
+  white-space: nowrap;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  position: relative;
+}
+
+.navItem:hover {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.navItemActive {
+  background-color: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+.navItemIcon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.navItem:hover .navItemIcon {
+  transform: scale(1.05);
+}
+
+.navItemLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, width 0.2s ease;
+}
+
+.navItemBadge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: rgba(37, 99, 235, 0.15);
+  color: var(--brand-accent);
+}
+
+/* Sidebar Bottom (Settings & Profile) */
+.sidebarBottom {
+  padding: 0.75rem 0.5rem;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+/* Special User-Specified Settings Item */
+.settingsItem {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.settingsItem:hover {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+  border-color: var(--card-border);
+}
+
+.settingsItemActive {
+  background-color: rgba(37, 99, 235, 0.15);
+  border-color: var(--brand-accent);
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+.settingsItemIcon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.settingsItem:hover .settingsItemIcon {
+  transform: rotate(30deg);
+}
+
+.settingsItemLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* User Profile Strip at Bottom of Sidebar */
+.sidebarUserCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+}
+
+.sidebarUserAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--brand-accent), #1d4ed8);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.sidebarUserInfo {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.sidebarUserName {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.sidebarUserEmail {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================================================
+   2. TOP MENU (NAVBAR / HEADER)
+   ========================================================= */
+.mainWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.topMenu {
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  background-color: rgba(19, 27, 46, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--card-border);
+  gap: 1rem;
+}
+
+:global([data-theme="light"]) .topMenu,
+:global(html.light) .topMenu {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+.topMenuLeft {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.mobileMenuBtn {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.breadcrumbGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.breadcrumbRoot {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.breadcrumbSeparator {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.breadcrumbCurrent {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background-color: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  color: #16a34a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.searchBarWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  width: 320px;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  transition: all 0.15s ease;
+}
+
+.searchBarWrapper:focus-within {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 0 2px var(--input-focus-ring);
+}
+
+.searchInput {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  width: 100%;
+}
+
+.searchKbd {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: inherit;
+}
+
+.topMenuRight {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background-color: var(--brand-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.actionButton:hover {
+  background-color: var(--btn-primary-hover);
+}
+
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.iconBtn:hover {
+  background-color: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.unreadDot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--brand-accent);
+}
+
+/* User Pill in Top Menu: Name on top, Email below */
+.topUserPill {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--card-border);
+  background-color: var(--input-bg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.topUserPill:hover {
+  border-color: var(--brand-accent);
+}
+
+.topUserAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--brand-accent), #1d4ed8);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.topUserDetails {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.topUserName {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.topUserEmail {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* =========================================================
+   3. MAIN CONTENT AREA
+   ========================================================= */
+.mainContent {
+  flex: 1;
+  padding: 1.75rem 2rem 3rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* Welcome Banner */
+.welcomeBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1.75rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(19, 27, 46, 0.6));
+  border: 1px solid var(--card-border);
+}
+
+.welcomeText h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+}
+
+.welcomeText p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.welcomeMeta {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+}
+
+.metaLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.metaValue {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Telemetry Metrics Grid */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.metricCard {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.metricCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--brand-accent);
+}
+
+.metricHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.metricIcon {
+  color: var(--brand-accent);
+}
+
+.metricValue {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.metricDelta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Dashboard Modules Layout */
+.dashboardRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.25rem;
+}
+
+.dashboardSection {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 0.85rem;
+}
+
+.sectionTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.sectionTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sectionBadge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: rgba(37, 99, 235, 0.12);
+  color: var(--brand-accent);
+}
+
+/* Agent Fleet List */
+.agentList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.agentCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: 10px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--card-border);
+  transition: all 0.15s ease;
+}
+
+.agentCard:hover {
+  border-color: var(--brand-accent);
+}
+
+.agentLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.agentAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--brand-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.agentInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.agentName {
+  font-size: 0.925rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.agentRole {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.agentStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #16a34a;
+}
+
+/* Terminal Stream Box */
+.terminalBox {
+  background-color: #050811;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.terminalLine {
+  display: flex;
+  gap: 0.75rem;
+  line-height: 1.4;
+}
+
+.terminalTime {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.terminalBadge {
+  color: #38bdf8;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.terminalText {
+  color: #cbd5e1;
+}
+
+/* =========================================================
+   4. SETTINGS VIEW (WHEN SETTINGS IS SELECTED)
+   ========================================================= */
+.settingsView {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.settingsCard {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settingsCardTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.settingsCardSubtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.settingsFormRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.settingsFormGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.settingsLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settingsInput {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.settingsInput:focus {
+  border-color: var(--brand-accent);
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+  }
+
+  .sidebarMobileOpen {
+    transform: translateX(0);
+  }
+
+  .mobileMenuBtn {
+    display: flex;
+  }
+
+  .dashboardRow {
+    grid-template-columns: 1fr;
+  }
+
+  .searchBarWrapper {
+    width: 200px;
+  }
+}
