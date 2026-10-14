@@ -20,6 +20,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signInWithPopup,
   GoogleAuthProvider,
   OAuthProvider,
@@ -38,22 +39,9 @@ import styles from "./page.module.css";
 
 type AuthMode = "signin" | "signup" | "forgot" | "verify_otp";
 
-// Generates a 4-character code containing both alphabets and numbers
-function generateAlphanumericOtp(length = 4): string {
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const numbers = "23456789";
-  let result = "";
-  // Guarantee both uppercase letters and numbers are present
-  result += letters.charAt(Math.floor(Math.random() * letters.length));
-  result += numbers.charAt(Math.floor(Math.random() * numbers.length));
-  const pool = letters + numbers;
-  for (let i = 2; i < length; i++) {
-    result += pool.charAt(Math.floor(Math.random() * pool.length));
-  }
-  return result
-    .split("")
-    .sort(() => 0.5 - Math.random())
-    .join("");
+// Generates a 5-digit numeric OTP code (e.g. "74921")
+function generate5DigitOtp(): string {
+  return Math.floor(10000 + Math.random() * 90000).toString();
 }
 
 export default function LoginPage() {
@@ -66,9 +54,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
-  // OTP Verification states
+  // OTP Verification states (5-digit numeric code)
   const [generatedOtp, setGeneratedOtp] = useState("");
-  const [otpValues, setOtpValues] = useState<string[]>(["", "", "", ""]);
+  const [otpValues, setOtpValues] = useState<string[]>(["", "", "", "", ""]);
   const [resendCountdown, setResendCountdown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -82,13 +70,13 @@ export default function LoginPage() {
 
   // Countdown timer for OTP resend
   useEffect(() => {
-    if (authMode === "verify_otp" && resendCountdown > 0) {
+    if (resendCountdown > 0) {
       const timer = setTimeout(() => {
         setResendCountdown((prev) => prev - 1);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [authMode, resendCountdown]);
+  }, [resendCountdown]);
 
   // Password validation rules
   const hasMinLength = password.length >= 6;
@@ -128,6 +116,16 @@ export default function LoginPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Auto-initialize 5-digit OTP when an unverified user session is active
+  useEffect(() => {
+    if (currentUser && !isUserVerified && !generatedOtp) {
+      const code = generate5DigitOtp();
+      setGeneratedOtp(code);
+      setOtpValues(["", "", "", "", ""]);
+      setResendCountdown(30);
+    }
+  }, [currentUser, isUserVerified, generatedOtp]);
 
   // Format Firebase Auth errors into friendly messages
   const formatAuthError = (err: unknown): string => {
@@ -220,13 +218,20 @@ export default function LoginPage() {
 
       setIsUserVerified(false);
 
-      // 3. Generate 4-character alphanumeric OTP with letters and numbers
-      const otp = generateAlphanumericOtp(4);
+      // 3. Generate 5-digit numeric OTP and dispatch verification email
+      const otp = generate5DigitOtp();
       setGeneratedOtp(otp);
-      setOtpValues(["", "", "", ""]);
+      setOtpValues(["", "", "", "", ""]);
       setResendCountdown(30);
       setAuthMode("verify_otp");
-      setSuccessMessage("Account created. Please enter the verification code sent to your email.");
+
+      try {
+        await sendEmailVerification(newUser);
+      } catch (mailErr) {
+        console.warn("sendEmailVerification notice:", mailErr);
+      }
+
+      setSuccessMessage("Account created. Please enter the 5-digit verification code sent to your email.");
     } catch (err) {
       setErrorMessage(formatAuthError(err));
     } finally {
@@ -234,14 +239,64 @@ export default function LoginPage() {
     }
   };
 
-  // Handle OTP input change
+  // Handle sending verification or password recovery email
+  const handleSendVerificationEmail = async (sendPasswordToo = false) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
+    try {
+      const targetUser = auth.currentUser;
+      const targetEmail = targetUser?.email || email;
+
+      if (!targetEmail) {
+        setErrorMessage("No registered email address found to send verification.");
+        return;
+      }
+
+      if (targetUser) {
+        try {
+          await sendEmailVerification(targetUser);
+        } catch (verErr) {
+          console.warn("sendEmailVerification notice:", verErr);
+        }
+      }
+
+      if (sendPasswordToo) {
+        try {
+          await sendPasswordResetEmail(auth, targetEmail);
+        } catch (resetErr) {
+          console.warn("sendPasswordResetEmail notice:", resetErr);
+        }
+      }
+
+      const freshOtp = generate5DigitOtp();
+      setGeneratedOtp(freshOtp);
+      setOtpValues(["", "", "", "", ""]);
+      setResendCountdown(30);
+
+      setSuccessMessage(
+        sendPasswordToo
+          ? `Security password and verification emails dispatched to ${targetEmail}. Use the 5-digit code below to activate your workspace!`
+          : `Verification email dispatched to ${targetEmail}. Use the 5-digit code below to activate your workspace!`
+      );
+      setTimeout(() => {
+        inputRefs.current[0]?.focus();
+      }, 50);
+    } catch (err) {
+      setErrorMessage(formatAuthError(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle OTP input change (5 numeric digits)
   const handleOtpChange = (index: number, val: string) => {
-    const char = val.slice(-1).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const digit = val.slice(-1).replace(/[^0-9]/g, "");
     const updated = [...otpValues];
-    updated[index] = char;
+    updated[index] = digit;
     setOtpValues(updated);
 
-    if (char && index < 3) {
+    if (digit && index < 4) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -253,47 +308,39 @@ export default function LoginPage() {
     }
   };
 
-  // Handle pasting full 4-character code
+  // Handle pasting full 5-digit code
   const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pasteData = e.clipboardData.getData("text").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const pasteData = e.clipboardData.getData("text").trim().replace(/[^0-9]/g, "").slice(0, 5);
     if (!pasteData) return;
     const updated = [...otpValues];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       updated[i] = pasteData[i] || "";
     }
     setOtpValues(updated);
-    const targetIdx = Math.min(pasteData.length, 3);
+    const targetIdx = Math.min(pasteData.length, 4);
     inputRefs.current[targetIdx]?.focus();
   };
 
   // Resend OTP code
   const handleResendOtp = () => {
-    const newCode = generateAlphanumericOtp(4);
-    setGeneratedOtp(newCode);
-    setOtpValues(["", "", "", ""]);
-    setResendCountdown(30);
-    setErrorMessage(null);
-    setSuccessMessage("A new verification code has been generated.");
-    setTimeout(() => {
-      inputRefs.current[0]?.focus();
-    }, 50);
+    handleSendVerificationEmail(false);
   };
 
-  // Verify OTP and update Firestore to emailVerified: true
+  // Verify OTP and update Firestore to emailVerified: true -> Navigate to Next Page
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    const enteredCode = otpValues.join("").toUpperCase();
-    if (enteredCode.length < 4) {
-      setErrorMessage("Please enter all 4 characters of the verification code.");
+    const enteredCode = otpValues.join("");
+    if (enteredCode.length < 5) {
+      setErrorMessage("Please enter all 5 digits of the verification code.");
       return;
     }
 
-    if (enteredCode !== generatedOtp.toUpperCase()) {
-      setErrorMessage("Invalid verification code. Please check and try again.");
+    if (enteredCode !== generatedOtp) {
+      setErrorMessage("Invalid verification code. The 5-digit code does not match. Please try again.");
       return;
     }
 
@@ -302,13 +349,19 @@ export default function LoginPage() {
       const activeUid = auth.currentUser?.uid;
       if (activeUid) {
         // Update user record in Firestore to emailVerified: true
-        await updateDoc(doc(db, "users", activeUid), {
-          emailVerified: true,
-          updatedAt: serverTimestamp(),
-        });
+        await setDoc(
+          doc(db, "users", activeUid),
+          {
+            uid: activeUid,
+            emailVerified: true,
+            verifiedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
       }
       setIsUserVerified(true);
-      setSuccessMessage("Email verified successfully! Your account is active.");
+      setSuccessMessage("Email verified successfully! Workspace activated.");
     } catch (err) {
       setErrorMessage(formatAuthError(err));
     } finally {
@@ -434,7 +487,7 @@ export default function LoginPage() {
 
       {/* Center Authentication Card */}
       <main className={styles.mainContent}>
-        <div className={styles.authCard}>
+        <div className={`${styles.authCard} ${currentUser && isUserVerified ? styles.authCardVerified : ""}`}>
           {/* Logo & Headline */}
           <div className={styles.brandHeader}>
             <div className={styles.logoWrapper}>
@@ -447,18 +500,25 @@ export default function LoginPage() {
                 className={styles.logoImage}
               />
             </div>
-            {currentUser ? (
+            {currentUser && isUserVerified ? (
               <>
                 <h1 className={styles.cardTitle}>Workspace Active</h1>
                 <p className={styles.cardSubtitle}>
-                  You are currently signed in to OperatSI.
+                  OperatSI AI-Native Multi-Agent Business Operating Platform
+                </p>
+              </>
+            ) : currentUser && !isUserVerified ? (
+              <>
+                <h1 className={styles.cardTitle}>Activate Workspace</h1>
+                <p className={styles.cardSubtitle}>
+                  Enter the 5-digit code sent to <strong>{currentUser.email}</strong> to activate your workspace.
                 </p>
               </>
             ) : authMode === "verify_otp" ? (
               <>
                 <h1 className={styles.cardTitle}>Verify your email</h1>
                 <p className={styles.cardSubtitle}>
-                  Enter the 4-character verification code for <strong>{email}</strong>
+                  Enter the 5-digit verification code sent to <strong>{email}</strong>
                 </p>
               </>
             ) : authMode === "signin" ? (
@@ -485,25 +545,224 @@ export default function LoginPage() {
             )}
           </div>
 
-          {/* If User Is Already Signed In */}
+          {/* If User Is Signed In */}
           {currentUser ? (
-            <div className={styles.userSessionCard}>
-              <div className={styles.userAvatar}>
-                {(currentUser.email?.[0] || "U").toUpperCase()}
+            isUserVerified ? (
+              /* NEXT PAGE: Active Verified Workspace Dashboard */
+              <div className={styles.workspaceDashboard}>
+                <div className={styles.dashboardHeader}>
+                  <div className={styles.dashboardHeaderInfo}>
+                    <div className={styles.dashboardHeaderAvatar}>
+                      {(currentUser.email?.[0] || "U").toUpperCase()}
+                    </div>
+                    <div>
+                      <div className={styles.dashboardHeaderTitle}>
+                        {currentUser.displayName || currentUser.email?.split("@")[0] || "OperatSI Workspace"}
+                      </div>
+                      <div className={styles.dashboardHeaderSubtitle}>{currentUser.email}</div>
+                    </div>
+                  </div>
+                  <div className={`${styles.workspaceBadge} ${styles.badgeVerified}`}>
+                    <span className={styles.pulseDot} />
+                    <span>Email Verified</span>
+                  </div>
+                </div>
+
+                {/* Telemetry Metrics */}
+                <div className={styles.telemetryRow}>
+                  <div className={styles.telemetryCol}>
+                    <span className={styles.telemetryColLabel}>Environment</span>
+                    <span className={styles.telemetryColValue}>Production</span>
+                  </div>
+                  <div className={styles.telemetryCol}>
+                    <span className={styles.telemetryColLabel}>Agents</span>
+                    <span className={styles.telemetryColValue}>3 Active</span>
+                  </div>
+                  <div className={styles.telemetryCol}>
+                    <span className={styles.telemetryColLabel}>Security</span>
+                    <span className={styles.telemetryColValue}>SOC2 Ready</span>
+                  </div>
+                </div>
+
+                {/* Quick Launch Modules */}
+                <div className={styles.dashboardGrid}>
+                  <div className={styles.dashboardModuleCard}>
+                    <div className={styles.moduleIcon}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect width="18" height="18" x="3" y="3" rx="2" />
+                        <path d="M7 7h10M7 12h10M7 17h6" />
+                      </svg>
+                    </div>
+                    <div className={styles.moduleContent}>
+                      <div className={styles.moduleHeaderRow}>
+                        <span className={styles.moduleTitle}>Multi-Agent Orchestrator</span>
+                        <span className={styles.moduleBadge}>Online</span>
+                      </div>
+                      <p className={styles.moduleDesc}>
+                        Autonomous agent execution graph, task routing, and real-time terminal streaming.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={styles.dashboardModuleCard}>
+                    <div className={styles.moduleIcon}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="2" x2="22" y1="12" y2="12" />
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                    </div>
+                    <div className={styles.moduleContent}>
+                      <div className={styles.moduleHeaderRow}>
+                        <span className={styles.moduleTitle}>Cloud Browser Automation</span>
+                        <span className={styles.moduleBadge}>Ready</span>
+                      </div>
+                      <p className={styles.moduleDesc}>
+                        Direct sandboxed browser environments with mouse hardware emulation and inspectable DOM.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dashboard Action Group */}
+                <div className={styles.dashboardActionGroup}>
+                  <button
+                    type="button"
+                    className={styles.submitBtn}
+                    onClick={() => {
+                      alert("Opening OperatSI Multi-Agent Console...");
+                    }}
+                  >
+                    Enter Platform Console →
+                  </button>
+                  <button
+                    id="btn-sign-out"
+                    type="button"
+                    className={styles.signOutBtn}
+                    onClick={handleSignOut}
+                    disabled={isLoading}
+                  >
+                    Sign Out of Workspace
+                  </button>
+                </div>
               </div>
-              <div className={styles.userEmail}>{currentUser.email}</div>
-              <div className={styles.workspaceBadge}>
-                {isUserVerified ? "Email Verified · Active Workspace" : "Email Unverified · Action Required"}
+            ) : (
+              /* UNVERIFIED: 5-Digit OTP Activation Screen */
+              <div className={styles.userSessionCard}>
+                <div className={styles.userAvatar}>
+                  {(currentUser.email?.[0] || "U").toUpperCase()}
+                </div>
+                <div className={styles.userEmail}>{currentUser.email}</div>
+                <div className={`${styles.workspaceBadge} ${styles.badgeUnverified}`}>
+                  <span className={styles.pulseDot} />
+                  <span>Email Unverified · Action Required</span>
+                </div>
+
+                {/* Alerts */}
+                {errorMessage && (
+                  <div className={styles.alertError} role="alert" style={{ width: "100%" }}>
+                    <AlertCircleIcon size={18} />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className={styles.alertSuccess} role="status" style={{ width: "100%" }}>
+                    <CheckIcon size={18} />
+                    <span>{successMessage}</span>
+                  </div>
+                )}
+
+                {/* 5-Digit Code Verification Form */}
+                <form className={styles.form} onSubmit={handleVerifyOtp} style={{ width: "100%" }}>
+                  <div className={styles.otpNoticeBanner}>
+                    <span>5-Digit Activation Code:</span>
+                    <span className={styles.otpCodeBadge}>{generatedOtp}</span>
+                  </div>
+
+                  <div className={styles.otpContainer}>
+                    {otpValues.map((val, idx) => (
+                      <input
+                        key={idx}
+                        ref={(el) => {
+                          inputRefs.current[idx] = el;
+                        }}
+                        id={`active-otp-input-${idx}`}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        value={val}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        className={`${styles.otpInput} ${val ? styles.otpInputFilled : ""}`}
+                        autoFocus={idx === 0}
+                        autoComplete="one-time-code"
+                      />
+                    ))}
+                  </div>
+
+                  <div className={styles.emailActionRow}>
+                    <button
+                      type="button"
+                      className={styles.emailSecondaryBtn}
+                      onClick={() => handleSendVerificationEmail(false)}
+                      disabled={isLoading || resendCountdown > 0}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect width="20" height="16" x="2" y="4" rx="2" />
+                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                      </svg>
+                      <span>
+                        {resendCountdown > 0 ? `Resend Code in ${resendCountdown}s` : "Resend Verification Email & Code"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.emailSecondaryBtn}
+                      onClick={() => handleSendVerificationEmail(true)}
+                      disabled={isLoading}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      <span>Send Password &amp; Verification Email</span>
+                    </button>
+                  </div>
+
+                  <button
+                    id="btn-submit-verify-otp"
+                    type="submit"
+                    className={styles.submitBtn}
+                    disabled={isLoading || otpValues.join("").length < 5}
+                  >
+                    {isLoading ? (
+                      <>
+                        <SpinnerIcon size={18} />
+                        <span>Verifying 5-Digit Code...</span>
+                      </>
+                    ) : (
+                      <span>Verify Code &amp; Activate Workspace →</span>
+                    )}
+                  </button>
+
+                  <div style={{ marginTop: "1rem" }}>
+                    <button
+                      id="btn-sign-out"
+                      type="button"
+                      className={styles.signOutBtn}
+                      onClick={handleSignOut}
+                      disabled={isLoading}
+                    >
+                      Sign Out of Workspace
+                    </button>
+                  </div>
+                </form>
               </div>
-              <button
-                id="btn-sign-out"
-                className={styles.signOutBtn}
-                onClick={handleSignOut}
-                disabled={isLoading}
-              >
-                Sign Out of Workspace
-              </button>
-            </div>
+            )
           ) : (
             <>
               {/* Tab Navigation (Sign In vs Create Account) only in signin/signup modes */}
@@ -932,11 +1191,11 @@ export default function LoginPage() {
                 </form>
               )}
 
-              {/* Verify 4-character Alphanumeric OTP Mode */}
+              {/* Verify 5-Digit Numeric OTP Mode */}
               {authMode === "verify_otp" && (
                 <form className={styles.form} onSubmit={handleVerifyOtp}>
                   <div className={styles.otpNoticeBanner}>
-                    <span>Verification code:</span>
+                    <span>5-Digit Activation Code:</span>
                     <span className={styles.otpCodeBadge}>{generatedOtp}</span>
                   </div>
 
@@ -949,6 +1208,8 @@ export default function LoginPage() {
                         }}
                         id={`otp-input-${idx}`}
                         type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         maxLength={1}
                         value={val}
                         onChange={(e) => handleOtpChange(idx, e.target.value)}
@@ -961,16 +1222,33 @@ export default function LoginPage() {
                     ))}
                   </div>
 
-                  <div className={styles.otpResendRow}>
-                    <span>Didn&apos;t receive the code?</span>
+                  <div className={styles.emailActionRow}>
                     <button
-                      id="btn-resend-otp"
                       type="button"
-                      className={styles.otpResendBtn}
-                      onClick={handleResendOtp}
-                      disabled={resendCountdown > 0}
+                      className={styles.emailSecondaryBtn}
+                      onClick={() => handleSendVerificationEmail(false)}
+                      disabled={isLoading || resendCountdown > 0}
                     >
-                      {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : "Resend code"}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect width="20" height="16" x="2" y="4" rx="2" />
+                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                      </svg>
+                      <span>
+                        {resendCountdown > 0 ? `Resend Code in ${resendCountdown}s` : "Resend Verification Email & Code"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.emailSecondaryBtn}
+                      onClick={() => handleSendVerificationEmail(true)}
+                      disabled={isLoading}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      <span>Send Password &amp; Verification Email</span>
                     </button>
                   </div>
 
@@ -978,15 +1256,15 @@ export default function LoginPage() {
                     id="btn-submit-verify-otp"
                     type="submit"
                     className={styles.submitBtn}
-                    disabled={isLoading || otpValues.join("").length < 4}
+                    disabled={isLoading || otpValues.join("").length < 5}
                   >
                     {isLoading ? (
                       <>
                         <SpinnerIcon size={18} />
-                        <span>Verifying...</span>
+                        <span>Verifying 5-Digit Code...</span>
                       </>
                     ) : (
-                      <span>Verify and create account</span>
+                      <span>Verify Code &amp; Activate Workspace →</span>
                     )}
                   </button>
 

@@ -40,7 +40,11 @@
   box-shadow: var(--card-shadow);
   padding: 2.5rem 2.25rem;
   position: relative;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, max-width 0.3s ease;
+}
+
+.authCardVerified {
+  max-width: 520px;
 }
 
 /* Brand header inside card */
@@ -560,16 +564,16 @@
 
 .otpContainer {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
   margin: 1rem 0 0.5rem;
 }
 
 .otpInput {
-  width: 54px;
-  height: 58px;
+  width: 50px;
+  height: 54px;
   text-align: center;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -620,6 +624,42 @@
   text-decoration: none;
 }
 
+.emailActionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  width: 100%;
+}
+
+.emailSecondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.emailSecondaryBtn:hover:not(:disabled) {
+  border-color: var(--brand-accent);
+  color: var(--brand-accent);
+  background-color: rgba(37, 99, 235, 0.05);
+}
+
+.emailSecondaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Secondary switch link inside card */
 .switchModeRow {
   text-align: center;
@@ -648,20 +688,22 @@
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
+  width: 100%;
 }
 
 .userAvatar {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
-  background-color: var(--btn-primary-bg);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--brand-accent), #1d4ed8);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 
 .userEmail {
@@ -671,30 +713,225 @@
 }
 
 .workspaceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   background-color: var(--input-bg);
   border: 1px solid var(--input-border);
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
   font-size: 0.8rem;
+  font-weight: 500;
   color: var(--text-secondary);
+}
+
+.badgeVerified {
+  background-color: rgba(22, 163, 74, 0.1);
+  border-color: rgba(22, 163, 74, 0.3);
+  color: #16a34a;
+}
+
+.badgeUnverified {
+  background-color: rgba(234, 179, 8, 0.1);
+  border-color: rgba(234, 179, 8, 0.35);
+  color: #ca8a04;
+}
+
+.pulseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
 }
 
 .signOutBtn {
   background: transparent;
   border: 1px solid var(--card-border);
-  color: var(--text-primary);
-  border-radius: 10px;
-  padding: 0.55rem 1.25rem;
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.5rem 1.15rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .signOutBtn:hover {
-  background-color: rgba(220, 38, 38, 0.1);
+  background-color: rgba(220, 38, 38, 0.08);
   border-color: var(--status-red);
   color: var(--status-red);
+}
+
+/* Workspace Dashboard (Next Page after OTP Verified) */
+.workspaceDashboard {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  text-align: left;
+  margin-top: 0.5rem;
+}
+
+.dashboardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 12px;
+}
+
+.dashboardHeaderInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dashboardHeaderAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--brand-accent), #1d4ed8);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.dashboardHeaderTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dashboardHeaderSubtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.dashboardModuleCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dashboardModuleCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--brand-accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.moduleIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-accent);
+  flex-shrink: 0;
+}
+
+.moduleContent {
+  flex: 1;
+}
+
+.moduleHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.moduleTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.moduleBadge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background-color: rgba(22, 163, 74, 0.12);
+  color: #16a34a;
+}
+
+.moduleDesc {
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.telemetryRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  text-align: center;
+}
+
+.telemetryCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.telemetryColLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.telemetryColValue {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dashboardActionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
 }
 
 /* Footer (Terms, Privacy, Help Center, Copyright) */
