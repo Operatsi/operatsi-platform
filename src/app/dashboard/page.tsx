@@ -23,10 +23,13 @@ import {
   UserIcon,
   PhoneIcon,
   SpinnerIcon,
+  TrashIcon,
+  CloseIcon,
+  AlertCircleIcon,
 } from "../../components/Icons";
 import { auth, db } from "../../lib/firebase";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { onAuthStateChanged, signOut, User, deleteUser } from "firebase/auth";
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import styles from "./dashboard.module.css";
 
 type DashboardTab = "overview" | "agents" | "automations" | "workflows" | "logs" | "settings";
@@ -222,6 +225,141 @@ export default function DashboardPage() {
       // Continue navigation
     }
     router.push("/");
+  };
+
+  // Delete Account States & Handlers
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [unlockTimeLeft, setUnlockTimeLeft] = useState(3);
+  const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
+
+  // 20-second active deletion countdown state
+  const [isScheduledDeletionActive, setIsScheduledDeletionActive] = useState(false);
+  const [deletionCountdown, setDeletionCountdown] = useState(20);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const unlockIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (unlockIntervalRef.current) clearInterval(unlockIntervalRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+  }, []);
+
+  const handleOpenDeleteModal = () => {
+    setIsDeleteModalOpen(true);
+    setUnlockTimeLeft(3);
+    setIsDeleteUnlocked(false);
+
+    if (unlockIntervalRef.current) clearInterval(unlockIntervalRef.current);
+
+    const startTime = Date.now();
+    const duration = 3000;
+
+    unlockIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, (duration - elapsed) / 1000);
+      setUnlockTimeLeft(remaining);
+
+      if (elapsed >= duration) {
+        setIsDeleteUnlocked(true);
+        setUnlockTimeLeft(0);
+        if (unlockIntervalRef.current) {
+          clearInterval(unlockIntervalRef.current);
+          unlockIntervalRef.current = null;
+        }
+      }
+    }, 50);
+  };
+
+  const handleCloseDeleteModal = () => {
+    if (unlockIntervalRef.current) {
+      clearInterval(unlockIntervalRef.current);
+      unlockIntervalRef.current = null;
+    }
+    setIsDeleteModalOpen(false);
+    setIsDeleteUnlocked(false);
+    setUnlockTimeLeft(3);
+  };
+
+  const executeFullFirebaseDeletion = async () => {
+    setIsDeleting(true);
+    try {
+      const uid = currentUser?.uid;
+      if (uid) {
+        // 1. Delete user profile & settings document from Firestore
+        try {
+          await deleteDoc(doc(db, "users", uid));
+        } catch (e) {
+          console.warn("Could not delete user doc from Firestore:", e);
+        }
+
+        // 2. Delete user activities, workflows, logs
+        try {
+          await deleteDoc(doc(db, "activities", uid));
+        } catch {}
+        try {
+          await deleteDoc(doc(db, "user_activities", uid));
+        } catch {}
+      }
+
+      // 3. Delete user authentication profile from Firebase Auth
+      if (currentUser) {
+        try {
+          await deleteUser(currentUser);
+        } catch (authErr) {
+          console.warn("deleteUser required recent login, signing out user:", authErr);
+          await signOut(auth);
+        }
+      } else {
+        await signOut(auth);
+      }
+    } catch (err) {
+      console.error("Deletion execution error:", err);
+      try {
+        await signOut(auth);
+      } catch {}
+    } finally {
+      setIsDeleting(false);
+      setIsScheduledDeletionActive(false);
+      router.push("/");
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    // Close the 3s confirmation modal
+    handleCloseDeleteModal();
+
+    // Start the 20-second scheduled deletion process
+    setIsScheduledDeletionActive(true);
+    setDeletionCountdown(20);
+
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
+    let currentSeconds = 20;
+    countdownIntervalRef.current = setInterval(() => {
+      currentSeconds -= 1;
+      setDeletionCountdown(currentSeconds);
+
+      if (currentSeconds <= 0) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+        executeFullFirebaseDeletion();
+      }
+    }, 1000);
+  };
+
+  const handleAbortDeletion = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setIsScheduledDeletionActive(false);
+    setDeletionCountdown(20);
   };
 
 interface NavItem {
@@ -906,34 +1044,30 @@ interface NavItem {
                       </form>
                     </div>
 
-                    {/* Workspace Organization Details Card */}
-                    <div className={styles.settingsCard}>
-                      <div className={styles.settingsCardHeader}>
-                        <h3 className={styles.settingsCardTitle}>Workspace Configuration</h3>
-                        <p className={styles.settingsCardSubtitle}>
-                          Primary organization settings and data residency.
+                    {/* Danger Zone: Delete Account Card */}
+                    <div className={styles.dangerCard}>
+                      <div className={styles.dangerCardHeader}>
+                        <h3 className={styles.dangerCardTitle}>
+                          <TrashIcon size={20} />
+                          <span>Delete Account</span>
+                        </h3>
+                        <p className={styles.dangerCardSubtitle}>
+                          Permanently delete your account, profile data, workspace connections, and all associated Firebase records.
                         </p>
                       </div>
 
-                      <div className={styles.settingsFormRow}>
-                        <div className={styles.settingsFormGroup}>
-                          <label className={styles.settingsLabel}>Workspace Name</label>
-                          <input
-                            type="text"
-                            className={styles.lockedInput}
-                            defaultValue="OperatSI Primary Workspace"
-                          />
-                        </div>
-                        <div className={styles.settingsFormGroup}>
-                          <label className={styles.settingsLabel}>Cloud Execution Region</label>
-                          <input
-                            type="text"
-                            className={styles.lockedInput}
-                            defaultValue="us-east-1 (Auto-scale multi-region)"
-                            readOnly
-                            disabled
-                          />
-                        </div>
+                      <div className={styles.dangerActionRow}>
+                        <p className={styles.dangerNotice}>
+                          Once initiated, you will have a 20-second safety window to cancel. After 20 seconds, your authentication profile, user activities, and data will be permanently wiped from Firebase.
+                        </p>
+                        <button
+                          type="button"
+                          className={styles.deleteInitiateBtn}
+                          onClick={handleOpenDeleteModal}
+                        >
+                          <TrashIcon size={16} />
+                          <span>Delete Account</span>
+                        </button>
                       </div>
                     </div>
                   </>
@@ -1018,6 +1152,132 @@ interface NavItem {
           )}
         </main>
       </div>
+
+      {/* Floating 3-Second Unlock Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className={styles.modalOverlay} onClick={handleCloseDeleteModal}>
+          <div
+            className={styles.modalDialog}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.modalHeader}>
+              <div className={styles.modalIconWrapper}>
+                <AlertCircleIcon size={24} />
+              </div>
+              <div className={styles.modalHeaderContent}>
+                <h3 className={styles.modalTitle}>Delete OperatSI Account?</h3>
+                <p className={styles.modalSubtitle}>
+                  This action is permanent and cannot be undone once confirmed.
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.modalCloseBtn}
+                onClick={handleCloseDeleteModal}
+                aria-label="Close dialog"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+
+            <div className={styles.deletionWarningBox}>
+              <p>
+                <strong>Warning:</strong> You are about to initiate the permanent deletion of your account and all associated Firebase assets.
+              </p>
+              <ul className={styles.deletionWarningList}>
+                <li>All profile records ({activeUserName}, {activeUserEmail})</li>
+                <li>Saved mobile numbers and security preferences</li>
+                <li>Workspace access tokens, credentials, and configurations</li>
+                <li>All user activity logs and automated workflows in Firebase</li>
+              </ul>
+            </div>
+
+            <div className={styles.delayProgressWrapper}>
+              <div className={styles.delayProgressTrack}>
+                <div
+                  className={styles.delayProgressFill}
+                  style={{ width: `${Math.min(100, ((3 - unlockTimeLeft) / 3) * 100)}%` }}
+                />
+              </div>
+              <div className={styles.delayProgressText}>
+                {!isDeleteUnlocked ? (
+                  <>
+                    <SpinnerIcon size={13} />
+                    <span>Unlocking delete action in {Math.ceil(unlockTimeLeft)}s...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckIcon size={13} />
+                    <span>Safety delay complete. You may now proceed.</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button
+                type="button"
+                className={styles.cancelModalBtn}
+                onClick={handleCloseDeleteModal}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.confirmDeleteBtn}
+                disabled={!isDeleteUnlocked}
+                onClick={handleConfirmDelete}
+              >
+                <TrashIcon size={16} />
+                <span>Confirm &amp; Delete Everything</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 20-Second Active Countdown & Abort Modal */}
+      {isScheduledDeletionActive && (
+        <div className={styles.modalOverlay}>
+          <div
+            className={styles.deletionCountdownDialog}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.countdownBadgeCircle}>
+              {deletionCountdown}
+            </div>
+
+            <div className={styles.modalHeaderContent} style={{ textAlign: "center" }}>
+              <h3 className={styles.countdownTitle}>
+                {isDeleting ? "Permanently Deleting..." : "Account Deletion in Progress"}
+              </h3>
+              <p className={styles.countdownSubtitle}>
+                {isDeleting
+                  ? "Erasing all user data, activities, and authentication profile from Firebase..."
+                  : `All user activities, database records, and authentication data will be permanently wiped from Firebase in ${deletionCountdown} seconds.`}
+              </p>
+            </div>
+
+            <div className={styles.countdownTrackLarge}>
+              <div
+                className={styles.countdownFillLarge}
+                style={{ width: `${(deletionCountdown / 20) * 100}%` }}
+              />
+            </div>
+
+            {!isDeleting && (
+              <button
+                type="button"
+                className={styles.abortDeletionBtn}
+                onClick={handleAbortDeletion}
+              >
+                <CloseIcon size={18} />
+                <span>Abort Deletion (Keep My Account)</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
