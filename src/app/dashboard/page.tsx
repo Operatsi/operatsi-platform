@@ -205,13 +205,16 @@ export default function DashboardPage() {
 
       setPhoneMessage({
         type: "success",
-        text: `Mobile number (${fullPhoneNumber}) saved successfully to your Firestore profile.`,
+        text: "Saved",
       });
+      setTimeout(() => {
+        setPhoneMessage((prev) => (prev?.text === "Saved" ? null : prev));
+      }, 4000);
     } catch (err) {
       console.error("Firestore phone update error:", err);
       setPhoneMessage({
         type: "error",
-        text: "Could not save mobile number to Firestore. Please check connection and try again.",
+        text: "Could not save mobile number. Please try again.",
       });
     } finally {
       setIsSavingPhone(false);
