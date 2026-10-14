@@ -117,13 +117,25 @@ export default function LoginPage() {
     return () => unsubscribe();
   }, []);
 
-  // Auto-initialize 5-digit OTP when an unverified user session is active
+  // Auto-initialize 5-digit OTP and send to user's email when an unverified user session is active
   useEffect(() => {
     if (currentUser && !isUserVerified && !generatedOtp) {
       const code = generate5DigitOtp();
       setGeneratedOtp(code);
       setOtpValues(["", "", "", "", ""]);
       setResendCountdown(30);
+
+      if (currentUser.email) {
+        fetch("/api/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: currentUser.email,
+            otp: code,
+            name: currentUser.displayName || currentUser.email.split("@")[0],
+          }),
+        }).catch((err) => console.warn("Auto-dispatch OTP email error:", err));
+      }
     }
   }, [currentUser, isUserVerified, generatedOtp]);
 
@@ -218,12 +230,23 @@ export default function LoginPage() {
 
       setIsUserVerified(false);
 
-      // 3. Generate 5-digit numeric OTP and dispatch verification email
+      // 3. Generate 5-digit numeric OTP and dispatch to user's email
       const otp = generate5DigitOtp();
       setGeneratedOtp(otp);
       setOtpValues(["", "", "", "", ""]);
       setResendCountdown(30);
       setAuthMode("verify_otp");
+
+      // Send 5-digit security code email
+      try {
+        await fetch("/api/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim(), otp, name: name.trim() }),
+        });
+      } catch (fetchErr) {
+        console.warn("send-otp api call:", fetchErr);
+      }
 
       try {
         await sendEmailVerification(newUser);
@@ -231,7 +254,7 @@ export default function LoginPage() {
         console.warn("sendEmailVerification notice:", mailErr);
       }
 
-      setSuccessMessage("Account created. Please enter the 5-digit verification code sent to your email.");
+      setSuccessMessage(`Account created! A 5-digit verification code has been sent to ${email}. Check your email inbox.`);
     } catch (err) {
       setErrorMessage(formatAuthError(err));
     } finally {
@@ -274,10 +297,25 @@ export default function LoginPage() {
       setOtpValues(["", "", "", "", ""]);
       setResendCountdown(30);
 
+      // Send 5-digit OTP to user's email
+      try {
+        await fetch("/api/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: targetEmail.trim(),
+            otp: freshOtp,
+            name: targetUser?.displayName || name,
+          }),
+        });
+      } catch (apiErr) {
+        console.warn("send-otp api call:", apiErr);
+      }
+
       setSuccessMessage(
         sendPasswordToo
-          ? `Security password and verification emails dispatched to ${targetEmail}. Use the 5-digit code below to activate your workspace!`
-          : `Verification email dispatched to ${targetEmail}. Use the 5-digit code below to activate your workspace!`
+          ? `Password reset and 5-digit code sent to ${targetEmail}! Please check your email inbox.`
+          : `A 5-digit verification code has been sent to ${targetEmail}! Please check your email inbox.`
       );
       setTimeout(() => {
         inputRefs.current[0]?.focus();
@@ -676,8 +714,11 @@ export default function LoginPage() {
                 {/* 5-Digit Code Verification Form */}
                 <form className={styles.form} onSubmit={handleVerifyOtp} style={{ width: "100%" }}>
                   <div className={styles.otpNoticeBanner}>
-                    <span>5-Digit Activation Code:</span>
-                    <span className={styles.otpCodeBadge}>{generatedOtp}</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect width="20" height="16" x="2" y="4" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                    <span>A 5-digit verification code has been sent to your email.</span>
                   </div>
 
                   <div className={styles.otpContainer}>
@@ -1195,8 +1236,11 @@ export default function LoginPage() {
               {authMode === "verify_otp" && (
                 <form className={styles.form} onSubmit={handleVerifyOtp}>
                   <div className={styles.otpNoticeBanner}>
-                    <span>5-Digit Activation Code:</span>
-                    <span className={styles.otpCodeBadge}>{generatedOtp}</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect width="20" height="16" x="2" y="4" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                    </svg>
+                    <span>A 5-digit verification code has been sent to <strong>{email}</strong>.</span>
                   </div>
 
                   <div className={styles.otpContainer}>
