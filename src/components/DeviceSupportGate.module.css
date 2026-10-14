@@ -1,0 +1,436 @@
+.gateOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background-color: var(--bg-main);
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 100%, rgba(37, 99, 235, 0.06) 0%, transparent 55%);
+  z-index: 999999;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.5rem 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Force display on mobile and tablet viewport */
+@media (max-width: 1024px) {
+  .gateOverlay {
+    display: flex !important;
+  }
+}
+
+/* Force display on touch tablets with coarse pointers up to 1280px */
+@media (max-width: 1280px) and (hover: none) and (pointer: coarse) {
+  .gateOverlay {
+    display: flex !important;
+  }
+}
+
+/* When explicitly bypassed by the user for reading legal docs on mobile */
+.gateOverlay.bypassed {
+  display: none !important;
+}
+
+/* Container */
+.gateContainer {
+  width: 100%;
+  max-width: 580px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow), 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  padding: 2rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: auto;
+  position: relative;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.gateHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--divider-color);
+  gap: 0.75rem;
+}
+
+.brandGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logoImage {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  object-fit: contain;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+}
+
+.brandTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.brandSubtitle {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Visual Illustration */
+.illustrationWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.deviceGraphic {
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  display: block;
+}
+
+/* Status Pill */
+.statusBadgeWrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  background-color: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  color: #f97316;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.pulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ea580c;
+  box-shadow: 0 0 8px #ea580c;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+/* Main Text */
+.contentSection {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.title {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0 auto;
+}
+
+/* Telemetry Box */
+.telemetryBox {
+  background-color: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.telemetryItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.telemetryLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.telemetryValue {
+  font-family: var(--font-geist-mono), monospace;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.telemetryDivider {
+  width: 1px;
+  height: 28px;
+  background-color: var(--divider-color);
+}
+
+/* Reasons List */
+.featuresGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background-color: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.featureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background-color: rgba(37, 99, 235, 0.12);
+  color: var(--brand-accent);
+  flex-shrink: 0;
+}
+
+.featureText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.featureTitle {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.featureDesc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Action Buttons */
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.btnPrimary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 9px;
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+}
+
+.btnPrimary:hover {
+  background-color: var(--btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btnPrimary:active {
+  background-color: var(--btn-primary-active);
+  transform: translateY(0);
+}
+
+.btnSecondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: 9px;
+  background-color: var(--btn-social-bg);
+  border: 1px solid var(--btn-social-border);
+  color: var(--btn-social-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btnSecondary:hover {
+  background-color: var(--btn-social-hover-bg);
+}
+
+/* Legal Bypass Notice */
+.legalBypassSection {
+  background-color: rgba(37, 99, 235, 0.08);
+  border: 1px dashed rgba(37, 99, 235, 0.3);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  text-align: center;
+}
+
+.legalBypassText {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.btnBypass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  color: var(--brand-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.2s ease;
+}
+
+.btnBypass:hover {
+  opacity: 0.8;
+}
+
+/* Footer Links */
+.gateFooter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--divider-color);
+}
+
+.footerNav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.footerLink {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.footerLink:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.footerDot {
+  color: var(--divider-color);
+  font-size: 0.7rem;
+}
+
+.copyright {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+/* Mobile specific paddings */
+@media (max-width: 480px) {
+  .gateContainer {
+    padding: 1.5rem 1.15rem;
+    gap: 1.25rem;
+  }
+
+  .title {
+    font-size: 1.25rem;
+  }
+
+  .description {
+    font-size: 0.82rem;
+  }
+
+  .telemetryBox {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .telemetryDivider {
+    display: none;
+  }
+}
