@@ -10,7 +10,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "firebase": "^13.0.0",
+    "firebase-admin": "^14.5.0",
     "next": "16.4.0",
     "nodemailer": "^10.1.0",
     "react": "19.3.0",

@@ -1309,3 +1309,120 @@
   color: var(--text-muted);
 }
 
+/* =========================================================
+   NOTIFICATION SYSTEM MODULE ENHANCEMENTS
+   ========================================================= */
+.deliveryStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: var(--brand-accent);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+
+.deliveryStatusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+  box-shadow: 0 0 6px var(--brand-accent);
+}
+
+.channelMatrixRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--divider-color);
+  gap: 1rem;
+}
+
+.channelMatrixRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.channelMatrixRow:first-child {
+  padding-top: 0;
+}
+
+.channelToggleGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--input-bg);
+  border: 1px solid var(--card-border);
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.channelPill {
+  background: transparent;
+  border: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.channelPill:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.channelPillActive {
+  background: var(--card-bg);
+  color: var(--brand-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 700;
+}
+
+.channelPillLocked {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--brand-accent);
+  cursor: default;
+  font-weight: 700;
+}
+
+.quietHoursRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.timeInput {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+  font-size: 0.82rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  outline: none;
+  font-family: inherit;
+}
+
+.timeInput:focus {
+  border-color: var(--brand-accent);
+}
+
+.testEventSection {
+  background: rgba(37, 99, 235, 0.03);
+  border: 1px dashed rgba(37, 99, 235, 0.25);
+  border-radius: 10px;
+  padding: 1.15rem;
+  margin-top: 1rem;
+}
+
+

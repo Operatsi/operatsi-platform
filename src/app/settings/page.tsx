@@ -95,6 +95,21 @@ import {
   SecurityEventRecord,
   SecurityPreferences,
 } from "@/lib/sessionService";
+import {
+  NotificationCategory,
+  NotificationPreferences,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_CATEGORIES_INFO,
+  subscribeToPreferences,
+  saveNotificationPreferences,
+  dispatchRealEvent,
+} from "@/lib/notifications";
+import {
+  checkPushSupport,
+  enablePushNotifications,
+  disablePushNotifications,
+  PushSupportStatus,
+} from "@/lib/fcm";
 import { CustomSelect, SelectOption } from "@/components/CustomSelect";
 import styles from "./settings.module.css";
 
@@ -329,14 +344,176 @@ export default function SettingsPage() {
   const [autoCollapseSidebar, setAutoCollapseSidebar] = useState(false);
   const [showUnreadBadges, setShowUnreadBadges] = useState(true);
 
-  // Notification toggles
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [inAppAlerts, setInAppAlerts] = useState(true);
-  const [browserAlerts, setBrowserAlerts] = useState(true);
-  const [taskAlerts, setTaskAlerts] = useState(true);
-  const [agentAlerts, setAgentAlerts] = useState(true);
-  const [approvalAlerts, setApprovalAlerts] = useState(true);
-  const [inviteAlerts, setInviteAlerts] = useState(true);
+  // Real-time Notification System state
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [pushStatus, setPushStatus] = useState<PushSupportStatus>({
+    supported: false,
+    permission: "default",
+    serviceWorkerReady: false,
+  });
+  const [isSavingNotif, setIsSavingNotif] = useState(false);
+  const [notifFeedback, setNotifFeedback] = useState<string | null>(null);
+  const [isTestingNotif, setIsTestingNotif] = useState(false);
+  const [testNotifFeedback, setTestNotifFeedback] = useState<string | null>(null);
+
+  // Check browser push support on mount
+  useEffect(() => {
+    setPushStatus(checkPushSupport());
+  }, []);
+
+  // Subscribe to real-time notification preferences from Cloud Firestore
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const unsub = subscribeToPreferences(currentUser.uid, (prefs) => {
+      setNotificationPrefs(prefs);
+    });
+    return () => unsub();
+  }, [currentUser?.uid]);
+
+  const handleToggleInAppChannel = async () => {
+    if (!currentUser?.uid) return;
+    setIsSavingNotif(true);
+    const updated: NotificationPreferences = {
+      ...notificationPrefs,
+      inAppEnabled: !notificationPrefs.inAppEnabled,
+    };
+    setNotificationPrefs(updated);
+    try {
+      await saveNotificationPreferences(currentUser.uid, updated);
+      setNotifFeedback("In-App alerts updated in Firestore.");
+      setTimeout(() => setNotifFeedback(null), 3000);
+    } catch {
+      setNotifFeedback("Failed to update In-App alerts.");
+    } finally {
+      setIsSavingNotif(false);
+    }
+  };
+
+  const handleTogglePushChannel = async () => {
+    if (!currentUser?.uid) return;
+    setIsSavingNotif(true);
+    setNotifFeedback(null);
+
+    if (!notificationPrefs.pushEnabled) {
+      const res = await enablePushNotifications(currentUser.uid);
+      setPushStatus(checkPushSupport());
+      if (res.success) {
+        const updated: NotificationPreferences = { ...notificationPrefs, pushEnabled: true };
+        setNotificationPrefs(updated);
+        await saveNotificationPreferences(currentUser.uid, updated);
+        setNotifFeedback("Browser push registered and enabled.");
+        setTimeout(() => setNotifFeedback(null), 3500);
+      } else {
+        setNotifFeedback(res.error || "Could not enable push in browser.");
+      }
+    } else {
+      await disablePushNotifications(currentUser.uid);
+      const updated: NotificationPreferences = { ...notificationPrefs, pushEnabled: false };
+      setNotificationPrefs(updated);
+      await saveNotificationPreferences(currentUser.uid, updated);
+      setPushStatus(checkPushSupport());
+      setNotifFeedback("Browser push alerts disabled.");
+      setTimeout(() => setNotifFeedback(null), 3000);
+    }
+    setIsSavingNotif(false);
+  };
+
+  const handleToggleEmailChannel = async () => {
+    if (!currentUser?.uid) return;
+    setIsSavingNotif(true);
+    const updated: NotificationPreferences = {
+      ...notificationPrefs,
+      emailEnabled: !notificationPrefs.emailEnabled,
+    };
+    setNotificationPrefs(updated);
+    try {
+      await saveNotificationPreferences(currentUser.uid, updated);
+      setNotifFeedback("Email delivery preference updated in Firestore.");
+      setTimeout(() => setNotifFeedback(null), 3000);
+    } catch {
+      setNotifFeedback("Failed to update email preference.");
+    } finally {
+      setIsSavingNotif(false);
+    }
+  };
+
+  const handleToggleCategoryChannel = async (cat: NotificationCategory, channel: "inApp" | "email" | "push") => {
+    if (!currentUser?.uid) return;
+    if (cat === "security") return; // Non-negotiable mandatory
+    const currentVal = notificationPrefs.categoryPreferences?.[cat]?.[channel] ?? true;
+    const updated: NotificationPreferences = {
+      ...notificationPrefs,
+      categoryPreferences: {
+        ...notificationPrefs.categoryPreferences,
+        [cat]: {
+          ...notificationPrefs.categoryPreferences[cat],
+          [channel]: !currentVal,
+        },
+      },
+    };
+    setNotificationPrefs(updated);
+    try {
+      await saveNotificationPreferences(currentUser.uid, updated);
+    } catch {
+      // Revert if error
+    }
+  };
+
+  const handleUpdateQuietHours = async (field: "enabled" | "startTime" | "endTime", value: any) => {
+    if (!currentUser?.uid) return;
+    const updated: NotificationPreferences = {
+      ...notificationPrefs,
+      quietHours: {
+        ...notificationPrefs.quietHours,
+        [field]: value,
+      },
+    };
+    setNotificationPrefs(updated);
+    try {
+      await saveNotificationPreferences(currentUser.uid, updated);
+    } catch {}
+  };
+
+  const handleUpdateDigest = async (frequency: "immediate" | "daily" | "weekly") => {
+    if (!currentUser?.uid) return;
+    const updated: NotificationPreferences = {
+      ...notificationPrefs,
+      digestFrequency: frequency,
+    };
+    setNotificationPrefs(updated);
+    try {
+      await saveNotificationPreferences(currentUser.uid, updated);
+      setNotifFeedback(`Digest frequency set to ${frequency}.`);
+      setTimeout(() => setNotifFeedback(null), 3000);
+    } catch {}
+  };
+
+  const handleTriggerTestEvent = async (cat: NotificationCategory) => {
+    if (!currentUser?.uid) return;
+    setIsTestingNotif(true);
+    setTestNotifFeedback(null);
+
+    const res = await dispatchRealEvent({
+      recipientUid: currentUser.uid,
+      recipientEmail: activeUserEmail,
+      category: cat,
+      type: "settings_test_event",
+      title: `[Test] ${cat.toUpperCase()} Alert Dispatched`,
+      body: `Verified diagnostic event dispatched from Settings → Notifications. Delivered live via Cloud Firestore.`,
+      priority: cat === "security" ? "urgent" : "normal",
+      actionUrl: "/inbox",
+      actorName: "OperatSI Console",
+      workspaceId: "ws_primary",
+    });
+
+    setIsTestingNotif(false);
+    if (res.success) {
+      setTestNotifFeedback(`Real-time ${cat} event dispatched! Check top bell & inbox.`);
+      setTimeout(() => setTestNotifFeedback(null), 4000);
+    } else {
+      setTestNotifFeedback(res.error || "Failed to dispatch test notification");
+    }
+  };
 
   // AI & Automation state
   const [defaultAiModel, setDefaultAiModel] = useState("claude-3-7-sonnet");
@@ -2615,165 +2792,393 @@ export default function SettingsPage() {
                       <span>Notifications</span>
                     </h1>
                     <p className={styles.pageDescription}>
-                      Configure communication channels and alerts for agent completions, human approvals, and security updates.
+                      Choose how and when Operatsi notifies you about important activity across all surfaces and channels.
                     </p>
+                  </div>
+
+                  <div className={styles.pageHeaderAction}>
+                    <div className={styles.deliveryStatusPill}>
+                      <span className={styles.deliveryStatusDot} />
+                      <span>Firestore Sync Live</span>
+                    </div>
                   </div>
                 </header>
 
+                {/* Feedback Toast / Banner */}
+                {notifFeedback && (
+                  <div
+                    style={{
+                      background: "rgba(37, 99, 235, 0.08)",
+                      border: "1px solid rgba(37, 99, 235, 0.25)",
+                      borderRadius: "8px",
+                      padding: "0.75rem 1rem",
+                      marginBottom: "1.25rem",
+                      color: "var(--brand-accent)",
+                      fontSize: "0.84rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {notifFeedback}
+                  </div>
+                )}
+
+                {/* 1. DELIVERY CHANNELS */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <div>
                       <h2 className={styles.sectionHeaderTitle}>Delivery Channels</h2>
-                      <p className={styles.sectionHeaderSubtitle}>Control how OperatSI routes high-priority notifications to you.</p>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Control which delivery mediums are active for your OperatSI account.
+                      </p>
                     </div>
                   </div>
 
+                  {/* In-App Channel */}
                   <div className={styles.settingRow}>
                     <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Email Notifications</h3>
-                      <p className={styles.settingDesc}>Receive critical alerts and approval summaries at {activeUserEmail}.</p>
+                      <h3 className={styles.settingTitle}>
+                        <span>In-App Notifications</span>
+                        <span className={`${styles.badge} ${styles.badgeSuccess}`}>Real-time</span>
+                      </h3>
+                      <p className={styles.settingDesc}>
+                        Receive live alerts, approval drawers, and execution telemetry in the top header bell and unified inbox.
+                      </p>
                     </div>
                     <div className={styles.settingControl}>
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={emailAlerts}
-                        className={`${styles.switch} ${emailAlerts ? styles.switchChecked : ""}`}
-                        onClick={() => setEmailAlerts((prev) => !prev)}
+                        aria-checked={notificationPrefs.inAppEnabled}
+                        className={`${styles.switch} ${notificationPrefs.inAppEnabled ? styles.switchChecked : ""}`}
+                        onClick={handleToggleInAppChannel}
+                        disabled={isSavingNotif}
                       >
                         <span className={styles.switchThumb} />
                       </button>
                     </div>
                   </div>
 
+                  {/* Desktop Browser Push */}
                   <div className={styles.settingRow}>
                     <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>In-App Activity Bell</h3>
-                      <p className={styles.settingDesc}>Show badges and notification drawers inside the OperatSI top navigation.</p>
+                      <h3 className={styles.settingTitle}>
+                        <span>Browser Push Notifications (FCM)</span>
+                        {!pushStatus.supported ? (
+                          <span className={`${styles.badge} ${styles.badgeDanger}`}>Unsupported</span>
+                        ) : pushStatus.permission === "denied" ? (
+                          <span className={`${styles.badge} ${styles.badgeDanger}`}>Blocked in Browser</span>
+                        ) : notificationPrefs.pushEnabled ? (
+                          <span className={`${styles.badge} ${styles.badgeSuccess}`}>Device Active</span>
+                        ) : (
+                          <span className={`${styles.badge} ${styles.badgeInfo}`}>Disabled</span>
+                        )}
+                      </h3>
+                      <p className={styles.settingDesc}>
+                        Receive operating system alerts when background agents complete or autonomous scrapers require human signature.
+                      </p>
                     </div>
                     <div className={styles.settingControl}>
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={inAppAlerts}
-                        className={`${styles.switch} ${inAppAlerts ? styles.switchChecked : ""}`}
-                        onClick={() => setInAppAlerts((prev) => !prev)}
+                        aria-checked={notificationPrefs.pushEnabled && pushStatus.permission === "granted"}
+                        className={`${styles.switch} ${
+                          notificationPrefs.pushEnabled && pushStatus.permission === "granted"
+                            ? styles.switchChecked
+                            : ""
+                        }`}
+                        onClick={handleTogglePushChannel}
+                        disabled={isSavingNotif || !pushStatus.supported}
+                        title={!pushStatus.supported ? "Push not supported in this browser" : undefined}
                       >
                         <span className={styles.switchThumb} />
                       </button>
                     </div>
                   </div>
 
+                  {/* Push Permission Warning if blocked */}
+                  {pushStatus.permission === "denied" && (
+                    <div
+                      style={{
+                        padding: "0.75rem 1rem",
+                        background: "rgba(220, 38, 38, 0.08)",
+                        border: "1px solid rgba(220, 38, 38, 0.25)",
+                        borderRadius: "8px",
+                        fontSize: "0.8rem",
+                        color: "var(--status-red)",
+                        margin: "0.5rem 0 1rem",
+                      }}
+                    >
+                      <strong>Push Blocked:</strong> Notification permission is blocked in your browser settings. Click the site settings icon in your browser address bar and set Notifications to &quot;Allow&quot;.
+                    </div>
+                  )}
+
+                  {/* Email Channel */}
                   <div className={styles.settingRow}>
                     <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Desktop Browser Push</h3>
-                      <p className={styles.settingDesc}>Instant OS push alerts when background agent executions require human input.</p>
+                      <h3 className={styles.settingTitle}>
+                        <span>Email Notifications</span>
+                        <span className={`${styles.badge} ${styles.badgeInfo}`}>Transactional</span>
+                      </h3>
+                      <p className={styles.settingDesc}>
+                        Route summaries, weekly digests, and high-priority delegation alerts to {activeUserEmail}.
+                      </p>
                     </div>
                     <div className={styles.settingControl}>
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={browserAlerts}
-                        className={`${styles.switch} ${browserAlerts ? styles.switchChecked : ""}`}
-                        onClick={() => setBrowserAlerts((prev) => !prev)}
+                        aria-checked={notificationPrefs.emailEnabled}
+                        className={`${styles.switch} ${notificationPrefs.emailEnabled ? styles.switchChecked : ""}`}
+                        onClick={handleToggleEmailChannel}
+                        disabled={isSavingNotif}
                       >
                         <span className={styles.switchThumb} />
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Mandatory Security Alerts */}
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <h3 className={styles.settingTitle}>
+                        <span>Mandatory Security &amp; Compliance</span>
+                        <span className={`${styles.badge} ${styles.badgeInfo}`}>SOC2 Compliant</span>
+                      </h3>
+                      <p className={styles.settingDesc}>
+                        Critical alerts for unrecognized IP logins, password alterations, API key generation, and session terminations.
+                      </p>
+                    </div>
+                    <div className={styles.settingControl}>
+                      <span className={`${styles.badge} ${styles.badgeInfo}`} title="Mandatory security policy cannot be disabled">
+                        Always Enforced
+                      </span>
                     </div>
                   </div>
                 </div>
 
+                {/* 2. GRANULAR EVENT CATEGORIES */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <div>
-                      <h2 className={styles.sectionHeaderTitle}>Event Subscriptions</h2>
-                      <p className={styles.sectionHeaderSubtitle}>Granularly select which events dispatch alerts.</p>
+                      <h2 className={styles.sectionHeaderTitle}>Event Categories &amp; Routing</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Granularly toggle In-App, Email, and Push delivery for each functional event stream.
+                      </p>
+                    </div>
+                  </div>
+
+                  {(Object.keys(NOTIFICATION_CATEGORIES_INFO) as NotificationCategory[]).map((cat) => {
+                    const info = NOTIFICATION_CATEGORIES_INFO[cat];
+                    const prefs = notificationPrefs.categoryPreferences?.[cat] || {
+                      inApp: true,
+                      email: true,
+                      push: true,
+                    };
+                    const isMandatory = info.mandatory;
+
+                    return (
+                      <div key={cat} className={styles.channelMatrixRow}>
+                        <div className={styles.settingInfo}>
+                          <h3 className={styles.settingTitle}>
+                            <span>{info.label}</span>
+                            {isMandatory && (
+                              <span className={`${styles.badge} ${styles.badgeInfo}`}>Mandatory</span>
+                            )}
+                          </h3>
+                          <p className={styles.settingDesc}>{info.description}</p>
+                        </div>
+
+                        <div className={styles.settingControl}>
+                          <div className={styles.channelToggleGroup}>
+                            <button
+                              type="button"
+                              className={`${styles.channelPill} ${
+                                prefs.inApp ? styles.channelPillActive : ""
+                              } ${isMandatory ? styles.channelPillLocked : ""}`}
+                              onClick={() => handleToggleCategoryChannel(cat, "inApp")}
+                              disabled={isMandatory}
+                              title="Toggle In-App Delivery"
+                            >
+                              In-App
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`${styles.channelPill} ${
+                                prefs.email ? styles.channelPillActive : ""
+                              } ${isMandatory ? styles.channelPillLocked : ""}`}
+                              onClick={() => handleToggleCategoryChannel(cat, "email")}
+                              disabled={isMandatory}
+                              title="Toggle Email Delivery"
+                            >
+                              Email
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`${styles.channelPill} ${
+                                prefs.push ? styles.channelPillActive : ""
+                              } ${isMandatory ? styles.channelPillLocked : ""}`}
+                              onClick={() => handleToggleCategoryChannel(cat, "push")}
+                              disabled={isMandatory}
+                              title="Toggle Push Delivery"
+                            >
+                              Push
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 3. QUIET HOURS & DIGESTS */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionHeaderTitle}>Quiet Hours &amp; Delivery Scheduling</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Suppress non-urgent push and sound alerts during focus periods. Urgent approvals bypass quiet hours.
+                      </p>
                     </div>
                   </div>
 
                   <div className={styles.settingRow}>
                     <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Task Assignments &amp; Mentions</h3>
-                      <p className={styles.settingDesc}>When team members delegate tasks or reference your identity.</p>
+                      <h3 className={styles.settingTitle}>Enable Quiet Hours</h3>
+                      <p className={styles.settingDesc}>
+                        Automatically silence alerts during your configured resting window ({notificationPrefs.quietHours.startTime} &ndash; {notificationPrefs.quietHours.endTime} {notificationPrefs.quietHours.timezone}).
+                      </p>
                     </div>
                     <div className={styles.settingControl}>
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={taskAlerts}
-                        className={`${styles.switch} ${taskAlerts ? styles.switchChecked : ""}`}
-                        onClick={() => setTaskAlerts((prev) => !prev)}
+                        aria-checked={notificationPrefs.quietHours.enabled}
+                        className={`${styles.switch} ${notificationPrefs.quietHours.enabled ? styles.switchChecked : ""}`}
+                        onClick={() => handleUpdateQuietHours("enabled", !notificationPrefs.quietHours.enabled)}
                       >
                         <span className={styles.switchThumb} />
                       </button>
                     </div>
                   </div>
 
-                  <div className={styles.settingRow}>
+                  {notificationPrefs.quietHours.enabled && (
+                    <div className={styles.quietHoursRow}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>From:</span>
+                        <input
+                          type="time"
+                          value={notificationPrefs.quietHours.startTime}
+                          onChange={(e) => handleUpdateQuietHours("startTime", e.target.value)}
+                          className={styles.timeInput}
+                        />
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>To:</span>
+                        <input
+                          type="time"
+                          value={notificationPrefs.quietHours.endTime}
+                          onChange={(e) => handleUpdateQuietHours("endTime", e.target.value)}
+                          className={styles.timeInput}
+                        />
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>Timezone:</span>
+                        <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-primary)" }}>
+                          {notificationPrefs.quietHours.timezone}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={styles.settingRow} style={{ marginTop: "1rem" }}>
                     <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Nano Agent Run Completions</h3>
-                      <p className={styles.settingDesc}>Status updates when autonomous scrapers or workflows succeed or fail.</p>
+                      <h3 className={styles.settingTitle}>Digest Frequency</h3>
+                      <p className={styles.settingDesc}>
+                        Choose whether to receive individual notifications immediately or batched into executive summaries.
+                      </p>
                     </div>
                     <div className={styles.settingControl}>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={agentAlerts}
-                        className={`${styles.switch} ${agentAlerts ? styles.switchChecked : ""}`}
-                        onClick={() => setAgentAlerts((prev) => !prev)}
+                      <select
+                        value={notificationPrefs.digestFrequency}
+                        onChange={(e) => handleUpdateDigest(e.target.value as any)}
+                        className={styles.select}
+                        style={{ minWidth: "200px" }}
+                        aria-label="Digest frequency"
                       >
-                        <span className={styles.switchThumb} />
-                      </button>
+                        <option value="immediate">Immediate Delivery (Real-time)</option>
+                        <option value="daily">Daily Morning Digest (09:00)</option>
+                        <option value="weekly">Weekly Executive Digest (Mondays)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. DIAGNOSTIC VERIFICATION */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionHeaderTitle}>Live Pipeline Verification</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Dispatch real test events to verify your Firestore stream, push notifications, and email routing.
+                      </p>
                     </div>
                   </div>
 
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Human-in-the-Loop Approvals</h3>
-                      <p className={styles.settingDesc}>Urgent notifications when an execution pauses waiting for your signature.</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={approvalAlerts}
-                        className={`${styles.switch} ${approvalAlerts ? styles.switchChecked : ""}`}
-                        onClick={() => setApprovalAlerts((prev) => !prev)}
-                      >
-                        <span className={styles.switchThumb} />
-                      </button>
-                    </div>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "0.75rem 0" }}>
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => handleTriggerTestEvent("tasks")}
+                      disabled={isTestingNotif}
+                    >
+                      Test Task Assignment
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => handleTriggerTestEvent("agents")}
+                      disabled={isTestingNotif}
+                    >
+                      Test Nano Agent Run
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => handleTriggerTestEvent("approvals")}
+                      disabled={isTestingNotif}
+                    >
+                      Test HITL Approval
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => handleTriggerTestEvent("security")}
+                      disabled={isTestingNotif}
+                    >
+                      Test Security Alert
+                    </button>
                   </div>
 
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Workspace Invitations</h3>
-                      <p className={styles.settingDesc}>Alerts when new collaborators accept invitations or change roles.</p>
+                  {testNotifFeedback && (
+                    <div
+                      style={{
+                        padding: "0.6rem 0.85rem",
+                        background: "rgba(37, 99, 235, 0.08)",
+                        borderRadius: "6px",
+                        fontSize: "0.82rem",
+                        color: "var(--brand-accent)",
+                        fontWeight: 600,
+                        marginTop: "0.5rem",
+                      }}
+                    >
+                      {testNotifFeedback}
                     </div>
-                    <div className={styles.settingControl}>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={inviteAlerts}
-                        className={`${styles.switch} ${inviteAlerts ? styles.switchChecked : ""}`}
-                        onClick={() => setInviteAlerts((prev) => !prev)}
-                      >
-                        <span className={styles.switchThumb} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Security &amp; Compliance Notifications</h3>
-                      <p className={styles.settingDesc}>Mandatory notices on new IP logins, API key generation, or policy edits.</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                      <span className={`${styles.badge} ${styles.badgeInfo}`} title="Mandatory for SOC2 compliance">
-                        Mandatory
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

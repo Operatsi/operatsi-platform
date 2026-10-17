@@ -43,6 +43,8 @@ import {
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import { NotificationBell } from "./NotificationBell";
+import { subscribeToUnreadCount } from "../lib/notifications";
 import styles from "./AppLayout.module.css";
 
 interface AppLayoutProps {
@@ -67,6 +69,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, activeRoute }) =
   // Auth User details
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userName, setUserName] = useState<string>("");
+  const [inboxUnreadCount, setInboxUnreadCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setInboxUnreadCount(0);
+      return;
+    }
+    const unsub = subscribeToUnreadCount(currentUser.uid, (count) => {
+      setInboxUnreadCount(count);
+    });
+    return () => unsub();
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -257,7 +271,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, activeRoute }) =
                       {isSidebarOpen && (
                         <>
                           <span className={styles.navItemLabel}>{item.label}</span>
-                          {item.badge && <span className={styles.navItemBadge}>{item.badge}</span>}
+                          {item.id === "inbox" && inboxUnreadCount > 0 ? (
+                            <span className={styles.navItemBadge}>{inboxUnreadCount > 99 ? "99+" : inboxUnreadCount}</span>
+                          ) : (
+                            item.badge && item.id !== "inbox" && <span className={styles.navItemBadge}>{item.badge}</span>
+                          )}
                           {hasSubmenus && (
                             <span
                               className={`${styles.submenuChevron} ${
@@ -408,16 +426,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, activeRoute }) =
 
             <div className={styles.headerDivider} />
 
-            <button
-              type="button"
-              className={styles.iconBtn}
-              title="Notifications"
-              aria-label="Notifications"
-              onClick={() => router.push("/inbox")}
-            >
-              <BellIcon size={15} />
-              <span className={styles.unreadDot} />
-            </button>
+            {/* Real-time Notification Bell */}
+            <NotificationBell currentUser={currentUser} />
 
             {/* Global Theme Toggle */}
             <ThemeToggle />

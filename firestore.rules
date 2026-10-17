@@ -1,65 +1,60 @@
 rules_version = '2';
 
 // ===============================================================
-// Assumed Data Model
-// ===============================================================
-//
-// Collection: users
-// Document ID: {userId} (matching request.auth.uid)
-// Fields:
-//   - uid: string (matches document userId)
-//   - email: string
-//   - name: string
-//   - displayName: string
-//   - authProvider: string
-//   - emailVerified: boolean
-//   - photoURL: string or null
-//   - jobTitle: string
-//   - language: string
-//   - preferredLanguage: string
-//   - timeZone: string
-//   - timezone: string
-//   - bio: string
-//   - phoneNumber: string
-//   - mobileNumber: string
-//   - phoneCountryCode: string
-//   - phoneDialCode: string
-//   - phoneNational: string
-//   - createdAt: timestamp
-//   - updatedAt: timestamp
-//   - verifiedAt: timestamp
-//
-// Subcollections under users:
-//   - /users/{userId}/{allPaths=**}: User-scoped nested documents
-//
-// Collection: activities
-// Document ID: {userId}
-// Subcollections: /activities/{userId}/{allPaths=**}
-//
-// Collection: user_activities
-// Document ID: {userId}
-// Subcollections: /user_activities/{userId}/{allPaths=**}
-//
+// OperatSI - Hardened Enterprise Cloud Firestore Security Rules
 // ===============================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Core security helper functions
-    function isAuthenticated() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
     }
 
-    // Validation helper: prevent UID manipulation during write operations
     function isValidUserWrite(userId) {
       return !('uid' in request.resource.data) || request.resource.data.uid == userId;
     }
 
-    // Users collection rules: strictly enforce owner access for reads, writes, and profile deletion
+    // =============================================================
+    // 1. NOTIFICATIONS & PREFERENCES
+    // =============================================================
+
+    // Real-Time In-App Notifications
+    match /users/{uid}/notifications/{notificationId} {
+      allow get, list: if isOwner(uid);
+
+      // Notifications are created & deleted only by trusted backend services.
+      allow create, delete: if false;
+
+      // Users can only mark read or archive their own notifications
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['readAt', 'archivedAt'])
+        && (request.resource.data.readAt == null || request.resource.data.readAt is timestamp)
+        && (request.resource.data.archivedAt == null || request.resource.data.archivedAt is timestamp);
+    }
+
+    // User Notification Preferences
+    match /users/{uid}/settings/notifications {
+      allow get: if isOwner(uid);
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    // Device Registrations for Web Push (backend-managed)
+    match /users/{uid}/devices/{deviceId} {
+      allow read, write: if false;
+    }
+
+    // =============================================================
+    // 2. USER PROFILES & SESSIONS
+    // =============================================================
+
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUserWrite(userId);
@@ -67,12 +62,20 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
-    // User-scoped subcollections
-    match /users/{userId}/{allPaths=**} {
+    // Active session tracking & revocation
+    match /users/{userId}/sessions/{sessionId} {
       allow read, write, delete: if isOwner(userId);
     }
 
-    // User activities & audit logging collections
+    // Security event audit log
+    match /users/{userId}/security_events/{eventId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // =============================================================
+    // 3. AUDIT LOGS & USER ACTIVITIES
+    // =============================================================
+
     match /activities/{userId} {
       allow read, write, delete: if isOwner(userId);
     }
