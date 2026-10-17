@@ -234,20 +234,14 @@ export default function DashboardPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [unlockTimeLeft, setUnlockTimeLeft] = useState(3);
   const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
-
-  // 20-second active deletion countdown state
-  const [isScheduledDeletionActive, setIsScheduledDeletionActive] = useState(false);
-  const [deletionCountdown, setDeletionCountdown] = useState(20);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const unlockIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
       if (unlockIntervalRef.current) clearInterval(unlockIntervalRef.current);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
@@ -342,44 +336,15 @@ export default function DashboardPage() {
       } catch {}
     } finally {
       setIsDeleting(false);
-      setIsScheduledDeletionActive(false);
       setIsDeleteModalOpen(false);
       router.push("/");
     }
   };
 
-  const handleConfirmDelete = () => {
-    // Close the 3s confirmation modal
+  const handleConfirmDelete = async () => {
     handleCloseDeleteModal();
-
-    // Start the 20-second scheduled deletion process
-    setIsScheduledDeletionActive(true);
-    setDeletionCountdown(20);
-
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-
-    let currentSeconds = 20;
-    countdownIntervalRef.current = setInterval(() => {
-      currentSeconds -= 1;
-      setDeletionCountdown(currentSeconds);
-
-      if (currentSeconds <= 0) {
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
-        }
-        executeFullFirebaseDeletion();
-      }
-    }, 1000);
-  };
-
-  const handleAbortDeletion = () => {
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    setIsScheduledDeletionActive(false);
-    setDeletionCountdown(20);
+    // Directly and permanently delete user data and auth profile from Firebase in the background
+    await executeFullFirebaseDeletion();
   };
 
 interface NavItem {
@@ -1213,77 +1178,22 @@ interface NavItem {
               <button
                 type="button"
                 className={styles.confirmDeleteBtn}
-                disabled={!isDeleteUnlocked}
+                disabled={!isDeleteUnlocked || isDeleting}
                 onClick={handleConfirmDelete}
               >
-                <TrashIcon size={16} />
-                <span>Confirm &amp; Delete Everything</span>
+                {isDeleting ? (
+                  <>
+                    <SpinnerIcon size={16} />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <TrashIcon size={16} />
+                    <span>Confirm &amp; Delete Everything</span>
+                  </>
+                )}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 20-Second Active Countdown & Abort Modal */}
-      {isScheduledDeletionActive && (
-        <div className={styles.modalOverlay}>
-          <div
-            className={styles.deletionCountdownDialog}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.countdownBadgeCircle}>
-              {isDeleting ? <SpinnerIcon size={32} /> : deletionCountdown}
-            </div>
-
-            <div className={styles.modalHeaderContent} style={{ textAlign: "center" }}>
-              <h3 className={styles.countdownTitle}>
-                {isDeleting ? "Permanently Deleting..." : "Account Deletion in Progress"}
-              </h3>
-              <p className={styles.countdownSubtitle}>
-                {isDeleting
-                  ? "Erasing all user data, Firestore documents, and authentication profile from Firebase..."
-                  : `All user profile documents, activities, and authentication credentials will be wiped from Firebase in ${deletionCountdown} seconds.`}
-              </p>
-            </div>
-
-            <div className={styles.countdownTrackLarge}>
-              <div
-                className={styles.countdownFillLarge}
-                style={{ width: `${(deletionCountdown / 20) * 100}%` }}
-              />
-            </div>
-
-            {!isDeleting ? (
-              <div className={styles.countdownActionsRow}>
-                <button
-                  type="button"
-                  className={styles.deleteNowBtn}
-                  onClick={() => {
-                    if (countdownIntervalRef.current) {
-                      clearInterval(countdownIntervalRef.current);
-                      countdownIntervalRef.current = null;
-                    }
-                    executeFullFirebaseDeletion();
-                  }}
-                >
-                  <TrashIcon size={16} />
-                  <span>Delete Immediately</span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.abortDeletionBtn}
-                  onClick={handleAbortDeletion}
-                >
-                  <CloseIcon size={18} />
-                  <span>Abort Deletion (Keep My Account)</span>
-                </button>
-              </div>
-            ) : (
-              <div style={{ color: "#94a3b8", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <SpinnerIcon size={16} />
-                <span>Wiping Firebase database records and signing out...</span>
-              </div>
-            )}
           </div>
         </div>
       )}
