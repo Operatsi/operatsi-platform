@@ -890,17 +890,6 @@ export default function SettingsPage() {
                           options={TIMEZONE_OPTIONS}
                         />
                       </div>
-
-                      <div className={`${styles.formGroup} ${styles.formGridFull}`}>
-                        <label className={styles.formLabel}>Professional Bio</label>
-                        <textarea
-                          rows={3}
-                          className={styles.textarea}
-                          value={bio}
-                          onChange={(e) => setBio(e.target.value)}
-                          placeholder="Brief description of your role and responsibilities..."
-                        />
-                      </div>
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", paddingTop: "0.5rem" }}>
