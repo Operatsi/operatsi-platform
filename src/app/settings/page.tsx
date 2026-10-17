@@ -27,6 +27,7 @@ import {
   TrashIcon,
   CloseIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
   SearchIcon,
   CopyIcon,
   DownloadIcon,
@@ -133,11 +134,23 @@ const COUNTRIES: CountryOption[] = [
   { name: "France", code: "FR", dialCode: "+33", flag: "🇫🇷" },
   { name: "Singapore", code: "SG", dialCode: "+65", flag: "🇸🇬" },
   { name: "United Arab Emirates", code: "AE", dialCode: "+971", flag: "🇦🇪" },
+  { name: "Saudi Arabia", code: "SA", dialCode: "+966", flag: "🇸🇦" },
   { name: "Japan", code: "JP", dialCode: "+81", flag: "🇯🇵" },
+  { name: "China", code: "CN", dialCode: "+86", flag: "🇨🇳" },
+  { name: "South Korea", code: "KR", dialCode: "+82", flag: "🇰🇷" },
   { name: "Netherlands", code: "NL", dialCode: "+31", flag: "🇳🇱" },
   { name: "Switzerland", code: "CH", dialCode: "+41", flag: "🇨🇭" },
+  { name: "Sweden", code: "SE", dialCode: "+46", flag: "🇸🇪" },
+  { name: "Norway", code: "NO", dialCode: "+47", flag: "🇳🇴" },
+  { name: "Spain", code: "ES", dialCode: "+34", flag: "🇪🇸" },
+  { name: "Italy", code: "IT", dialCode: "+39", flag: "🇮🇹" },
+  { name: "Ireland", code: "IE", dialCode: "+353", flag: "🇮🇪" },
   { name: "Brazil", code: "BR", dialCode: "+55", flag: "🇧🇷" },
+  { name: "Mexico", code: "MX", dialCode: "+52", flag: "🇲🇽" },
   { name: "South Africa", code: "ZA", dialCode: "+27", flag: "🇿🇦" },
+  { name: "Malaysia", code: "MY", dialCode: "+60", flag: "🇲🇾" },
+  { name: "Indonesia", code: "ID", dialCode: "+62", flag: "🇮🇩" },
+  { name: "New Zealand", code: "NZ", dialCode: "+64", flag: "🇳🇿" },
 ];
 
 const LANGUAGE_OPTIONS: SelectOption[] = [
@@ -402,6 +415,9 @@ export default function SettingsPage() {
     setIsSavingProfile(true);
     setProfileFeedback(null);
     try {
+      const fullPhoneNumber = phoneNational.trim()
+        ? `${selectedCountry.dialCode} ${phoneNational.trim()}`
+        : "";
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -410,6 +426,10 @@ export default function SettingsPage() {
           language,
           timeZone,
           bio,
+          phoneNumber: fullPhoneNumber,
+          phoneCountryCode: selectedCountry.code,
+          phoneDialCode: selectedCountry.dialCode,
+          phoneNational: phoneNational.trim(),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -689,17 +709,139 @@ export default function SettingsPage() {
 
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Email Address</label>
+                        <input
+                          type="email"
+                          className={`${styles.input} ${styles.lockedInput}`}
+                          value={activeUserEmail}
+                          readOnly
+                          title="Contact workspace administrator to alter registered email"
+                        />
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Mobile Number</label>
                         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          {/* Country Code Trigger */}
+                          <div ref={countryDropdownRef} style={{ position: "relative" }}>
+                            <button
+                              type="button"
+                              className={styles.input}
+                              style={{
+                                width: "auto",
+                                minWidth: "110px",
+                                height: "38px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "0.45rem",
+                                cursor: "pointer",
+                                padding: "0.55rem 0.65rem",
+                              }}
+                              onClick={() => {
+                                setIsCountryDropdownOpen((prev) => !prev);
+                                setCountrySearch("");
+                              }}
+                              aria-haspopup="listbox"
+                              aria-expanded={isCountryDropdownOpen}
+                              title="Select country code"
+                            >
+                              <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                <span style={{ fontSize: "1rem", lineHeight: 1 }}>{selectedCountry.flag}</span>
+                                <span style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--text-primary)" }}>
+                                  {selectedCountry.dialCode}
+                                </span>
+                              </span>
+                              <ChevronDownIcon
+                                size={12}
+                                style={{
+                                  color: "var(--text-muted)",
+                                  transition: "transform 0.15s ease",
+                                  transform: isCountryDropdownOpen ? "rotate(180deg)" : "none",
+                                }}
+                              />
+                            </button>
+
+                            {isCountryDropdownOpen && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: "calc(100% + 4px)",
+                                  left: 0,
+                                  width: "260px",
+                                  background: "var(--card-bg)",
+                                  border: "1px solid var(--card-border)",
+                                  borderRadius: "10px",
+                                  boxShadow: "0 12px 30px -4px rgba(0, 0, 0, 0.35), 0 4px 12px -2px rgba(0, 0, 0, 0.2)",
+                                  zIndex: 90,
+                                  padding: "0.4rem",
+                                  maxHeight: "260px",
+                                  overflowY: "auto",
+                                }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.25rem 0.5rem 0.5rem" }}>
+                                  <SearchIcon size={13} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                                  <input
+                                    type="text"
+                                    placeholder="Search country..."
+                                    value={countrySearch}
+                                    onChange={(e) => setCountrySearch(e.target.value)}
+                                    className={styles.input}
+                                    style={{ padding: "0.3rem 0.5rem", fontSize: "0.775rem", height: "30px" }}
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                                  {COUNTRIES.filter(
+                                    (c) =>
+                                      c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+                                      c.dialCode.includes(countrySearch)
+                                  ).map((country) => (
+                                    <button
+                                      key={country.code}
+                                      type="button"
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        width: "100%",
+                                        padding: "0.45rem 0.65rem",
+                                        background: selectedCountry.code === country.code ? "rgba(37,99,235,0.12)" : "transparent",
+                                        border: "none",
+                                        borderRadius: "6px",
+                                        color: selectedCountry.code === country.code ? "#3b82f6" : "var(--text-primary)",
+                                        fontSize: "0.8125rem",
+                                        fontWeight: selectedCountry.code === country.code ? 600 : 500,
+                                        cursor: "pointer",
+                                        textAlign: "left",
+                                      }}
+                                      onClick={() => {
+                                        setSelectedCountry(country);
+                                        setIsCountryDropdownOpen(false);
+                                      }}
+                                    >
+                                      <span>{country.flag} {country.name}</span>
+                                      <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontWeight: 500 }}>
+                                        {country.dialCode}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* National Phone Number */}
                           <input
-                            type="email"
-                            className={`${styles.input} ${styles.lockedInput}`}
-                            value={activeUserEmail}
-                            readOnly
+                            type="tel"
+                            inputMode="tel"
+                            placeholder="Mobile phone number"
+                            value={phoneNational}
+                            onChange={(e) => setPhoneNational(e.target.value)}
+                            className={styles.input}
+                            style={{ flex: 1, height: "38px" }}
                           />
-                          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-                            <CheckIcon size={12} />
-                            <span>Verified</span>
-                          </span>
                         </div>
                       </div>
 
@@ -790,18 +932,14 @@ export default function SettingsPage() {
                       <p className={styles.settingDesc}>{activeUserEmail}</p>
                     </div>
                     <div className={styles.settingControl}>
-                      <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-                        <CheckIcon size={12} />
-                        <span>Verified</span>
-                      </span>
                     </div>
                   </div>
 
-                  {/* Verified Phone */}
+                  {/* Mobile Number */}
                   <form onSubmit={handleSavePhone} style={{ paddingTop: "1rem" }}>
                     <div className={styles.settingRow} style={{ borderBottom: "none" }}>
                       <div className={styles.settingInfo}>
-                        <h3 className={styles.settingTitle}>Verified Mobile Number</h3>
+                        <h3 className={styles.settingTitle}>Mobile Number</h3>
                         <p className={styles.settingDesc}>Used for multi-factor authentication (MFA) and urgent security alerts.</p>
                       </div>
                     </div>
@@ -824,7 +962,7 @@ export default function SettingsPage() {
                             <span>{selectedCountry.flag}</span>
                             <span style={{ fontWeight: 600 }}>{selectedCountry.dialCode}</span>
                           </span>
-                          <ChevronRightIcon size={12} style={{ transform: "rotate(90deg)" }} />
+                          <ChevronDownIcon size={12} style={{ color: "var(--text-muted)" }} />
                         </button>
 
                         {isCountryDropdownOpen && (
