@@ -4,10 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/AppLayout";
 import {
-  UserIcon,
-  ShieldCheckIcon,
-  AgentNodesIcon,
-  WorkflowBranchIcon,
   CheckIcon,
   SpinnerIcon,
   TrashIcon,
@@ -20,8 +16,6 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User, deleteUser, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import styles from "../dashboard/dashboard.module.css";
-
-type SettingsSubTab = "workspace" | "security" | "notifications" | "preferences";
 
 interface CountryOption {
   name: string;
@@ -57,8 +51,6 @@ const COUNTRIES: CountryOption[] = [
 
 export default function SettingsPage() {
   const router = useRouter();
-
-  const [settingsTab, setSettingsTab] = useState<SettingsSubTab>("workspace");
 
   // User auth and firestore profile details
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -257,315 +249,257 @@ export default function SettingsPage() {
   return (
     <AppLayout activeRoute="/settings">
       <div className={styles.settingsLayout}>
-        {/* Settings Sub-Navigation */}
-        <aside className={styles.settingsSubNav} aria-label="Settings Sub-Navigation">
-          <div className={styles.settingsSubNavHeader}>Settings</div>
-          <button
-            type="button"
-            className={`${styles.settingsSubNavItem} ${
-              settingsTab === "workspace" ? styles.settingsSubNavItemActive : ""
-            }`}
-            onClick={() => setSettingsTab("workspace")}
-          >
-            <UserIcon size={18} />
-            <span>Workspace</span>
-          </button>
+        {/* 1. Identity & Workspace Profile Card */}
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHeader}>
+            <h2 className={styles.settingsCardTitle}>Workspace Profile</h2>
+          </div>
 
-          <button
-            type="button"
-            className={`${styles.settingsSubNavItem} ${
-              settingsTab === "security" ? styles.settingsSubNavItemActive : ""
-            }`}
-            onClick={() => setSettingsTab("security")}
-          >
-            <ShieldCheckIcon size={18} />
-            <span>Security</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.settingsSubNavItem} ${
-              settingsTab === "notifications" ? styles.settingsSubNavItemActive : ""
-            }`}
-            onClick={() => setSettingsTab("notifications")}
-          >
-            <AgentNodesIcon size={18} />
-            <span>Notifications</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.settingsSubNavItem} ${
-              settingsTab === "preferences" ? styles.settingsSubNavItemActive : ""
-            }`}
-            onClick={() => setSettingsTab("preferences")}
-          >
-            <WorkflowBranchIcon size={18} />
-            <span>Preferences</span>
-          </button>
-        </aside>
-
-        {/* Settings Content Area */}
-        <div className={styles.settingsContent}>
-          {settingsTab === "workspace" && (
-            <>
-              {/* Identity & Contact Info */}
-              <div className={styles.settingsCard}>
-                <div className={styles.settingsCardHeader}>
-                  <h2 className={styles.settingsCardTitle}>Workspace Profile</h2>
+          <div className={styles.settingsFormRow}>
+            {/* User Name */}
+            <div className={styles.settingsFormGroup}>
+              <div className={styles.settingsLabelRow}>
+                <label className={styles.settingsLabel} htmlFor="settings-user-name">
+                  User Name
+                </label>
+              </div>
+              <div className={styles.lockedInputWrapper}>
+                <input
+                  id="settings-user-name"
+                  type="text"
+                  className={styles.lockedInput}
+                  value={activeUserName}
+                  readOnly
+                  tabIndex={-1}
+                  aria-label="User Name (cannot be changed)"
+                />
+                <div className={styles.fieldTooltip} role="tooltip">
+                  You cannot change the name
                 </div>
+              </div>
+            </div>
 
-                <div className={styles.settingsFormRow}>
-                  {/* User Name */}
-                  <div className={styles.settingsFormGroup}>
-                    <div className={styles.settingsLabelRow}>
-                      <label className={styles.settingsLabel} htmlFor="settings-user-name">
-                        User Name
-                      </label>
-                    </div>
-                    <div className={styles.lockedInputWrapper}>
-                      <input
-                        id="settings-user-name"
-                        type="text"
-                        className={styles.lockedInput}
-                        value={activeUserName}
-                        readOnly
-                        tabIndex={-1}
-                        aria-label="User Name (cannot be changed)"
-                      />
-                      <div className={styles.fieldTooltip} role="tooltip">
-                        You cannot change the name
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Email Address */}
-                  <div className={styles.settingsFormGroup}>
-                    <div className={styles.settingsLabelRow}>
-                      <label className={styles.settingsLabel} htmlFor="settings-user-email">
-                        Email Address
-                      </label>
-                      <span className={styles.verifiedBadge}>
-                        <CheckIcon size={11} />
-                        <span>Verified</span>
-                      </span>
-                    </div>
-                    <div className={styles.lockedInputWrapper}>
-                      <input
-                        id="settings-user-email"
-                        type="email"
-                        className={styles.lockedInput}
-                        value={activeUserEmail}
-                        readOnly
-                        tabIndex={-1}
-                        aria-label="Email Address (cannot be changed)"
-                      />
-                      <div className={styles.fieldTooltip} role="tooltip">
-                        You cannot change the email
-                      </div>
-                    </div>
-                  </div>
+            {/* Email Address */}
+            <div className={styles.settingsFormGroup}>
+              <div className={styles.settingsLabelRow}>
+                <label className={styles.settingsLabel} htmlFor="settings-user-email">
+                  Email Address
+                </label>
+                <span className={styles.verifiedBadge}>
+                  <CheckIcon size={11} />
+                  <span>Verified</span>
+                </span>
+              </div>
+              <div className={styles.lockedInputWrapper}>
+                <input
+                  id="settings-user-email"
+                  type="email"
+                  className={styles.lockedInput}
+                  value={activeUserEmail}
+                  readOnly
+                  tabIndex={-1}
+                  aria-label="Email Address (cannot be changed)"
+                />
+                <div className={styles.fieldTooltip} role="tooltip">
+                  You cannot change the email
                 </div>
+              </div>
+            </div>
+          </div>
 
-                {/* Mobile Phone Number */}
-                <form onSubmit={handleSavePhone} className={styles.settingsFormGroup}>
-                  <div className={styles.settingsLabelRow}>
-                    <label className={styles.settingsLabel} htmlFor="settings-mobile-phone">
-                      Mobile Number
-                    </label>
-                  </div>
+          {/* Mobile Phone Number */}
+          <form onSubmit={handleSavePhone} className={styles.settingsFormGroup}>
+            <div className={styles.settingsLabelRow}>
+              <label className={styles.settingsLabel} htmlFor="settings-mobile-phone">
+                Mobile Number
+              </label>
+            </div>
 
-                  <div className={styles.phoneInputRow}>
-                    <div className={styles.phoneInputGroup}>
-                      <div ref={countryDropdownRef} style={{ position: "relative" }}>
-                        <button
-                          id="country-selector-trigger"
-                          type="button"
-                          className={styles.countrySelectorBtn}
-                          onClick={() => {
-                            setIsCountryDropdownOpen((prev) => !prev);
-                            setCountrySearch("");
-                          }}
-                          aria-haspopup="listbox"
-                          aria-expanded={isCountryDropdownOpen}
-                          title="Select Country Code"
-                        >
-                          <span className={styles.countryFlag}>{selectedCountry.flag}</span>
-                          <span className={styles.countryDialCode}>{selectedCountry.dialCode}</span>
-                          <span
-                            className={`${styles.countryChevron} ${
-                              isCountryDropdownOpen ? styles.countryChevronOpen : ""
-                            }`}
-                          >
-                            <ChevronRightIcon size={11} style={{ transform: "rotate(90deg)" }} />
-                          </span>
-                        </button>
-
-                        {isCountryDropdownOpen && (
-                          <div className={styles.countryDropdownMenu} role="listbox">
-                            <div className={styles.countrySearchBox}>
-                              <SearchIcon size={13} style={{ color: "var(--text-muted)" }} />
-                              <input
-                                type="text"
-                                placeholder="Search country..."
-                                value={countrySearch}
-                                onChange={(e) => setCountrySearch(e.target.value)}
-                                className={styles.countrySearchInput}
-                                autoFocus
-                              />
-                            </div>
-
-                            <div className={styles.countryList}>
-                              {COUNTRIES.filter(
-                                (c) =>
-                                  c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-                                  c.dialCode.includes(countrySearch) ||
-                                  c.code.toLowerCase().includes(countrySearch.toLowerCase())
-                              ).map((country) => {
-                                const isSelected = selectedCountry.code === country.code;
-                                return (
-                                  <button
-                                    key={country.code}
-                                    type="button"
-                                    role="option"
-                                    aria-selected={isSelected}
-                                    className={`${styles.countryOption} ${
-                                      isSelected ? styles.countryOptionSelected : ""
-                                    }`}
-                                    onClick={() => {
-                                      setSelectedCountry(country);
-                                      setIsCountryDropdownOpen(false);
-                                    }}
-                                  >
-                                    <span className={styles.countryFlag}>{country.flag}</span>
-                                    <span className={styles.countryOptionName}>{country.name}</span>
-                                    <span className={styles.countryOptionDial}>{country.dialCode}</span>
-                                    {isSelected && <CheckIcon size={13} />}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <input
-                        id="settings-mobile-phone"
-                        type="tel"
-                        inputMode="tel"
-                        placeholder="Enter mobile number"
-                        value={phoneNational}
-                        onChange={(e) => setPhoneNational(e.target.value)}
-                        className={styles.phoneInput}
-                        autoComplete="tel-national"
-                      />
-                    </div>
-
-                    <button type="submit" className={styles.savePhoneBtn} disabled={isSavingPhone}>
-                      {isSavingPhone ? (
-                        <>
-                          <SpinnerIcon size={13} />
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckIcon size={13} />
-                          <span>Save</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {phoneMessage && (
-                    <div
-                      className={
-                        phoneMessage.type === "success"
-                          ? styles.phoneAlertSuccess
-                          : styles.phoneAlertError
-                      }
-                      role={phoneMessage.type === "success" ? "status" : "alert"}
+            <div className={styles.phoneInputRow}>
+              <div className={styles.phoneInputGroup}>
+                <div ref={countryDropdownRef} style={{ position: "relative" }}>
+                  <button
+                    id="country-selector-trigger"
+                    type="button"
+                    className={styles.countrySelectorBtn}
+                    onClick={() => {
+                      setIsCountryDropdownOpen((prev) => !prev);
+                      setCountrySearch("");
+                    }}
+                    aria-haspopup="listbox"
+                    aria-expanded={isCountryDropdownOpen}
+                    title="Select Country Code"
+                  >
+                    <span className={styles.countryFlag}>{selectedCountry.flag}</span>
+                    <span className={styles.countryDialCode}>{selectedCountry.dialCode}</span>
+                    <span
+                      className={`${styles.countryChevron} ${
+                        isCountryDropdownOpen ? styles.countryChevronOpen : ""
+                      }`}
                     >
-                      {phoneMessage.type === "success" ? (
-                        <CheckIcon size={13} />
-                      ) : (
-                        <AlertCircleIcon size={13} />
-                      )}
-                      <span>{phoneMessage.text}</span>
+                      <ChevronRightIcon size={11} style={{ transform: "rotate(90deg)" }} />
+                    </span>
+                  </button>
+
+                  {isCountryDropdownOpen && (
+                    <div className={styles.countryDropdownMenu} role="listbox">
+                      <div className={styles.countrySearchBox}>
+                        <SearchIcon size={13} style={{ color: "var(--text-muted)" }} />
+                        <input
+                          type="text"
+                          placeholder="Search country..."
+                          value={countrySearch}
+                          onChange={(e) => setCountrySearch(e.target.value)}
+                          className={styles.countrySearchInput}
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className={styles.countryList}>
+                        {COUNTRIES.filter(
+                          (c) =>
+                            c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+                            c.dialCode.includes(countrySearch) ||
+                            c.code.toLowerCase().includes(countrySearch.toLowerCase())
+                        ).map((country) => {
+                          const isSelected = selectedCountry.code === country.code;
+                          return (
+                            <button
+                              key={country.code}
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              className={`${styles.countryOption} ${
+                                isSelected ? styles.countryOptionSelected : ""
+                              }`}
+                              onClick={() => {
+                                setSelectedCountry(country);
+                                setIsCountryDropdownOpen(false);
+                              }}
+                            >
+                              <span className={styles.countryFlag}>{country.flag}</span>
+                              <span className={styles.countryOptionName}>{country.name}</span>
+                              <span className={styles.countryOptionDial}>{country.dialCode}</span>
+                              {isSelected && <CheckIcon size={13} />}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
-                </form>
-              </div>
-
-              {/* Danger Zone: Delete Account */}
-              <div className={styles.dangerCard}>
-                <div className={styles.dangerCardHeader}>
-                  <h3 className={styles.dangerCardTitle}>
-                    <TrashIcon size={15} />
-                    <span>Delete Account</span>
-                  </h3>
                 </div>
-                <button
-                  type="button"
-                  className={styles.deleteInitiateBtn}
-                  onClick={handleOpenDeleteModal}
-                >
-                  <TrashIcon size={13} />
-                  <span>Delete</span>
-                </button>
-              </div>
-            </>
-          )}
 
-          {settingsTab === "security" && (
-            <div className={styles.settingsCard}>
-              <div className={styles.settingsCardHeader}>
-                <h2 className={styles.settingsCardTitle}>Security &amp; Access</h2>
-              </div>
-              <div className={styles.settingsFormGroup}>
-                <span className={styles.settingsLabel}>Compliance Status</span>
-                <div className={styles.statusPill} style={{ alignSelf: "flex-start" }}>
-                  <span className={styles.pulseDot} />
-                  <span>SOC2 Type II Certified • Production</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {settingsTab === "notifications" && (
-            <div className={styles.settingsCard}>
-              <div className={styles.settingsCardHeader}>
-                <h2 className={styles.settingsCardTitle}>Notifications &amp; Policies</h2>
-              </div>
-              <div className={styles.settingsFormRow}>
-                <div className={styles.settingsFormGroup}>
-                  <label className={styles.settingsLabel}>Max Parallel Agents</label>
-                  <input type="number" className={styles.lockedInput} defaultValue={10} />
-                </div>
-                <div className={styles.settingsFormGroup}>
-                  <label className={styles.settingsLabel}>Timeout (seconds)</label>
-                  <input type="number" className={styles.lockedInput} defaultValue={300} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {settingsTab === "preferences" && (
-            <div className={styles.settingsCard}>
-              <div className={styles.settingsCardHeader}>
-                <h2 className={styles.settingsCardTitle}>Preferences &amp; API Keys</h2>
-              </div>
-              <div className={styles.settingsFormGroup}>
-                <label className={styles.settingsLabel}>Production API Key</label>
                 <input
-                  type="password"
-                  className={styles.lockedInput}
-                  value="opsi_live_9837492817491029481"
-                  readOnly
-                  disabled
+                  id="settings-mobile-phone"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Enter mobile number"
+                  value={phoneNational}
+                  onChange={(e) => setPhoneNational(e.target.value)}
+                  className={styles.phoneInput}
+                  autoComplete="tel-national"
                 />
               </div>
+
+              <button type="submit" className={styles.savePhoneBtn} disabled={isSavingPhone}>
+                {isSavingPhone ? (
+                  <>
+                    <SpinnerIcon size={13} />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckIcon size={13} />
+                    <span>Save</span>
+                  </>
+                )}
+              </button>
             </div>
-          )}
+
+            {phoneMessage && (
+              <div
+                className={
+                  phoneMessage.type === "success"
+                    ? styles.phoneAlertSuccess
+                    : styles.phoneAlertError
+                }
+                role={phoneMessage.type === "success" ? "status" : "alert"}
+              >
+                {phoneMessage.type === "success" ? (
+                  <CheckIcon size={13} />
+                ) : (
+                  <AlertCircleIcon size={13} />
+                )}
+                <span>{phoneMessage.text}</span>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {/* 2. Security & Compliance Card */}
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHeader}>
+            <h2 className={styles.settingsCardTitle}>Security &amp; Access</h2>
+          </div>
+          <div className={styles.settingsFormGroup}>
+            <span className={styles.settingsLabel}>Compliance Status</span>
+            <div className={styles.statusPill} style={{ alignSelf: "flex-start" }}>
+              <span className={styles.pulseDot} />
+              <span>SOC2 Type II Certified • Production</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Notifications & Policies Card */}
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHeader}>
+            <h2 className={styles.settingsCardTitle}>Notifications &amp; Policies</h2>
+          </div>
+          <div className={styles.settingsFormRow}>
+            <div className={styles.settingsFormGroup}>
+              <label className={styles.settingsLabel}>Max Parallel Agents</label>
+              <input type="number" className={styles.lockedInput} defaultValue={10} />
+            </div>
+            <div className={styles.settingsFormGroup}>
+              <label className={styles.settingsLabel}>Timeout (seconds)</label>
+              <input type="number" className={styles.lockedInput} defaultValue={300} />
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Preferences & API Keys Card */}
+        <div className={styles.settingsCard}>
+          <div className={styles.settingsCardHeader}>
+            <h2 className={styles.settingsCardTitle}>Preferences &amp; API Keys</h2>
+          </div>
+          <div className={styles.settingsFormGroup}>
+            <label className={styles.settingsLabel}>Production API Key</label>
+            <input
+              type="password"
+              className={styles.lockedInput}
+              value="opsi_live_9837492817491029481"
+              readOnly
+              disabled
+            />
+          </div>
+        </div>
+
+        {/* 5. Danger Zone: Delete Account Card */}
+        <div className={styles.dangerCard}>
+          <div className={styles.dangerCardHeader}>
+            <h3 className={styles.dangerCardTitle}>
+              <TrashIcon size={15} />
+              <span>Delete Account</span>
+            </h3>
+          </div>
+          <button
+            type="button"
+            className={styles.deleteInitiateBtn}
+            onClick={handleOpenDeleteModal}
+          >
+            <TrashIcon size={13} />
+            <span>Delete</span>
+          </button>
         </div>
       </div>
 

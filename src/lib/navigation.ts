@@ -163,7 +163,6 @@ export const NAVIGATION_SECTIONS: MenuSection[] = [
         label: "Settings",
         route: "/settings",
         iconName: "SettingsHexIcon",
-        submenus: ["Workspace", "Security", "Notifications", "Preferences"],
         description: "Profile configuration, security keys, compliance controls, and workspace preferences.",
       },
     ],

@@ -1013,11 +1013,10 @@
    4. SETTINGS VIEW (MINIMAL, COMPACT & CUTE)
    ========================================================= */
 .settingsLayout {
-  display: grid;
-  grid-template-columns: 190px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
-  max-width: 820px;
-  align-items: flex-start;
+  max-width: 840px;
 }
 
 /* Left Sub-Menu for Settings */
