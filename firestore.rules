@@ -145,6 +145,45 @@ service cloud.firestore {
       allow read, write, delete: if isOwner(userId);
     }
 
+    // =============================================================
+    // 4. WORKSPACES, MEMBERSHIP, ROLES & INVITATIONS
+    // =============================================================
+
+    // Workspace metadata: authenticated users can read workspace documents
+    match /workspaces/{workspaceId} {
+      allow read: if signedIn();
+      allow write: if false; // Managed via server-side admin APIs
+    }
+
+    // Workspace members: authenticated members can read directory in real-time
+    match /workspaces/{workspaceId}/members/{memberId} {
+      allow read: if signedIn();
+      allow write: if false; // Role changes & removals enforced server-side
+    }
+
+    // Workspace invitations: authenticated users can read invitations list
+    match /workspaces/{workspaceId}/invitations/{invitationId} {
+      allow read: if signedIn();
+      allow write: if false; // Tokens and email dispatch managed server-side
+    }
+
+    // Workspace roles & permissions
+    match /workspaces/{workspaceId}/roles/{roleId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Workspace audit telemetry
+    match /workspaces/{workspaceId}/audit/{auditId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Single-use token hash index: backend-managed only
+    match /workspace_invitations_by_token/{tokenHash} {
+      allow read, write: if false;
+    }
+
     // Catch-all rule: strictly deny access to any unspecified collection
     match /{document=**} {
       allow read, write: if false;

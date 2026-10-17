@@ -111,6 +111,7 @@ import {
   PushSupportStatus,
 } from "@/lib/fcm";
 import { CustomSelect, SelectOption } from "@/components/CustomSelect";
+import { MembersAndRolesSection } from "@/components/workspace/MembersAndRolesSection";
 import styles from "./settings.module.css";
 
 // -------------------------------------------------------------
@@ -3287,189 +3288,12 @@ export default function SettingsPage() {
 
             {/* 6. MEMBERS & ROLES */}
             {activeSection === "members" && (
-              <div>
-                <header className={styles.pageHeader}>
-                  <div className={styles.pageTitleGroup}>
-                    <h1 className={styles.pageTitle}>
-                      <TeamIcon size={20} />
-                      <span>Members &amp; Roles</span>
-                    </h1>
-                    <p className={styles.pageDescription}>
-                      Manage workspace members, grant role-based access permissions, and issue invitation links.
-                    </p>
-                  </div>
-                  <div className={styles.pageHeaderAction}>
-                    <button type="button" className={styles.btnPrimary} onClick={() => setIsInviteModalOpen(true)}>
-                      <TeamIcon size={14} />
-                      <span>Invite Member</span>
-                    </button>
-                  </div>
-                </header>
-
-                <div className={styles.sectionCard}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <h2 className={styles.sectionHeaderTitle}>Active Workspace Members ({membersList.length})</h2>
-                      <p className={styles.sectionHeaderSubtitle}>All users with authenticated access to this workspace environment.</p>
-                    </div>
-                  </div>
-
-                  <div className={styles.tableWrapper}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>Member</th>
-                          <th>Role</th>
-                          <th>Status</th>
-                          <th>Last Active</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {membersList.map((member) => (
-                          <tr key={member.id}>
-                            <td>
-                              <div style={{ display: "flex", flexDirection: "column" }}>
-                                <span style={{ fontWeight: 600 }}>{member.name}</span>
-                                <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>{member.email}</span>
-                              </div>
-                            </td>
-                            <td>
-                              <span
-                                className={`${styles.badge} ${
-                                  member.role === "Owner"
-                                    ? styles.badgeDanger
-                                    : member.role === "Admin"
-                                    ? styles.badgeInfo
-                                    : styles.badgeNeutral
-                                }`}
-                              >
-                                {member.role}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-                                <CheckIcon size={11} /> {member.status}
-                              </span>
-                            </td>
-                            <td style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>{member.lastActive}</td>
-                            <td>
-                              {member.role !== "Owner" && (
-                                <button
-                                  type="button"
-                                  className={styles.btnSecondary}
-                                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.72rem" }}
-                                  onClick={() => {
-                                    if (confirm(`Remove ${member.name} from workspace?`)) {
-                                      setMembersList((prev) => prev.filter((m) => m.id !== member.id));
-                                    }
-                                  }}
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Role Permissions Reference */}
-                <div className={styles.sectionCard}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <h2 className={styles.sectionHeaderTitle}>Role Permissions Matrix</h2>
-                      <p className={styles.sectionHeaderSubtitle}>Summary of platform authorizations across defined RBAC tiers.</p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
-                    <div style={{ padding: "1rem", border: "1px solid var(--card-border)", borderRadius: "8px" }}>
-                      <span className={`${styles.badge} ${styles.badgeDanger}`}>Owner / Admin</span>
-                      <p style={{ fontSize: "0.785rem", color: "var(--text-secondary)", marginTop: "0.5rem", lineHeight: 1.45 }}>
-                        Full access to billing, AI spend policies, security keys, member invitations, danger zone operations, and compliance logs.
-                      </p>
-                    </div>
-
-                    <div style={{ padding: "1rem", border: "1px solid var(--card-border)", borderRadius: "8px" }}>
-                      <span className={`${styles.badge} ${styles.badgeNeutral}`}>Member / Viewer</span>
-                      <p style={{ fontSize: "0.785rem", color: "var(--text-secondary)", marginTop: "0.5rem", lineHeight: 1.45 }}>
-                        Execute assigned Nano Agents, submit workflows for human approval, view CRM pipelines, and query authorized knowledge bases.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Invite Member Modal */}
-                {isInviteModalOpen && (
-                  <div className={styles.modalOverlay} onClick={() => setIsInviteModalOpen(false)}>
-                    <div className={styles.modalDialog} onClick={(e) => e.stopPropagation()}>
-                      <div className={styles.modalHeader}>
-                        <div style={{ flex: 1 }}>
-                          <h3 className={styles.modalTitle}>Invite Workspace Collaborator</h3>
-                          <p className={styles.modalSubtitle}>Send a secure email invitation with pre-configured role permissions.</p>
-                        </div>
-                        <button type="button" onClick={() => setIsInviteModalOpen(false)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
-                          <CloseIcon size={18} />
-                        </button>
-                      </div>
-
-                      <div className={styles.modalBody}>
-                        <div className={styles.formGroup} style={{ marginBottom: "1rem" }}>
-                          <label className={styles.formLabel}>Collaborator Email</label>
-                          <input
-                            type="email"
-                            placeholder="colleague@company.com"
-                            className={styles.input}
-                            value={inviteEmail}
-                            onChange={(e) => setInviteEmail(e.target.value)}
-                            autoFocus
-                          />
-                        </div>
-
-                        <div className={styles.formGroup}>
-                          <label className={styles.formLabel}>Assigned Role</label>
-                          <CustomSelect
-                            value={inviteRole}
-                            onChange={(val) => setInviteRole(val)}
-                            options={INVITE_ROLE_OPTIONS}
-                          />
-                        </div>
-                      </div>
-
-                      <div className={styles.modalFooter}>
-                        <button type="button" className={styles.btnSecondary} onClick={() => setIsInviteModalOpen(false)}>
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.btnPrimary}
-                          onClick={() => {
-                            if (!inviteEmail) return alert("Please enter an email address.");
-                            setMembersList((prev) => [
-                              ...prev,
-                              {
-                                id: String(Date.now()),
-                                name: inviteEmail.split("@")[0],
-                                email: inviteEmail,
-                                role: inviteRole,
-                                status: "Active",
-                                lastActive: "Invited now",
-                              },
-                            ]);
-                            setIsInviteModalOpen(false);
-                            setInviteEmail("");
-                          }}
-                        >
-                          Send Invitation
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <MembersAndRolesSection
+                currentUser={currentUser}
+                workspaceId="ws_primary"
+                workspaceName={workspaceName}
+                userTimezone={timeZone}
+              />
             )}
 
             {/* 7. DEPARTMENTS */}
