@@ -141,23 +141,23 @@ const COUNTRIES: CountryOption[] = [
 ];
 
 const LANGUAGE_OPTIONS: SelectOption[] = [
-  { value: "en-US", label: "English (United States)", badge: "Primary", description: "Default corporate locale & formatting" },
-  { value: "en-GB", label: "English (United Kingdom)", description: "British spelling & date standards" },
-  { value: "de-DE", label: "Deutsch (German)", description: "European standard business German" },
-  { value: "fr-FR", label: "Français (French)", description: "French metropolitan localization" },
-  { value: "ja-JP", label: "日本語 (Japanese)", description: "East Asia business locale" },
-  { value: "es-ES", label: "Español (Spanish)", description: "Spanish continental localization" },
+  { value: "en-US", label: "English (United States)" },
+  { value: "en-GB", label: "English (United Kingdom)" },
+  { value: "de-DE", label: "Deutsch (German)" },
+  { value: "fr-FR", label: "Français (French)" },
+  { value: "ja-JP", label: "日本語 (Japanese)" },
+  { value: "es-ES", label: "Español (Spanish)" },
 ];
 
 const TIMEZONE_OPTIONS: SelectOption[] = [
-  { value: "UTC", label: "UTC (Coordinated Universal Time)", badge: "Standard", description: "Global operational baseline" },
-  { value: "America/New_York", label: "Eastern Time (US & Canada)", description: "UTC-05:00 / UTC-04:00 (EDT)" },
-  { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)", description: "UTC-08:00 / UTC-07:00 (PDT)" },
-  { value: "Europe/London", label: "London (GMT / BST)", description: "UTC+00:00 / UTC+01:00" },
-  { value: "Europe/Frankfurt", label: "Frankfurt (CET / CEST)", description: "UTC+01:00 / UTC+02:00" },
-  { value: "Asia/Kolkata", label: "India Standard Time (IST)", description: "UTC+05:30 (No daylight saving)" },
-  { value: "Asia/Tokyo", label: "Tokyo (JST)", description: "UTC+09:00" },
-  { value: "Asia/Singapore", label: "Singapore (SGT)", description: "UTC+08:00" },
+  { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+  { value: "America/New_York", label: "Eastern Time (US & Canada)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)" },
+  { value: "Europe/London", label: "London (GMT / BST)" },
+  { value: "Europe/Frankfurt", label: "Frankfurt (CET)" },
+  { value: "Asia/Kolkata", label: "India Standard Time (IST)" },
+  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+  { value: "Asia/Singapore", label: "Singapore (SGT)" },
 ];
 
 const DENSITY_OPTIONS: SelectOption[] = [
