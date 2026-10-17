@@ -38,10 +38,63 @@ import {
   SystemModeIcon,
   GoogleIcon,
   AppleIcon,
+  LaptopIcon,
+  SmartphoneIcon,
+  GlobeIcon,
+  LogOutIcon,
+  ShieldAlertIcon,
+  HistoryIcon,
 } from "@/components/Icons";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged, User, deleteUser, signOut, updateProfile } from "firebase/auth";
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import {
+  onAuthStateChanged,
+  User,
+  deleteUser,
+  signOut,
+  updateProfile,
+  sendEmailVerification,
+  verifyBeforeUpdateEmail,
+  updatePassword,
+  sendPasswordResetEmail,
+  EmailAuthProvider,
+  GoogleAuthProvider,
+  OAuthProvider,
+  linkWithPopup,
+  unlink,
+  reauthenticateWithCredential,
+  linkWithCredential,
+  RecaptchaVerifier,
+  ConfirmationResult,
+  linkWithPhoneNumber,
+} from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  updateDoc,
+  serverTimestamp,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+} from "firebase/firestore";
+import {
+  registerSession,
+  updateSessionHeartbeat,
+  revokeSession,
+  revokeOtherSessions,
+  revokeAllSessions,
+  logSecurityEvent,
+  getSecurityPreferences,
+  updateSecurityPreferences,
+  getOrCreateSessionId,
+  SessionRecord,
+  SecurityEventRecord,
+  SecurityPreferences,
+} from "@/lib/sessionService";
 import { CustomSelect, SelectOption } from "@/components/CustomSelect";
 import styles from "./settings.module.css";
 
@@ -333,6 +386,657 @@ export default function SettingsPage() {
   const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const unlockIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // -------------------------------------------------------------
+  // ACCOUNT & SIGN-IN REAL-TIME STATE & HANDLERS
+  // -------------------------------------------------------------
+  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>("");
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [isLogoutOthersModalOpen, setIsLogoutOthersModalOpen] = useState(false);
+  const [isLoggingOutOthers, setIsLoggingOutOthers] = useState(false);
+  const [isLogoutAllModalOpen, setIsLogoutAllModalOpen] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
+  const [sessionActionFeedback, setSessionActionFeedback] = useState<string | null>(null);
+
+  // Email verification state
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [emailVerificationCooldown, setEmailVerificationCooldown] = useState(0);
+  const [emailVerificationFeedback, setEmailVerificationFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Email update modal state
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [newEmailInput, setNewEmailInput] = useState("");
+  const [emailPasswordConfirm, setEmailPasswordConfirm] = useState("");
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [emailModalError, setEmailModalError] = useState<string | null>(null);
+  const [emailModalSuccess, setEmailModalSuccess] = useState<string | null>(null);
+
+  // Password management modal state
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordModalError, setPasswordModalError] = useState<string | null>(null);
+  const [passwordModalSuccess, setPasswordModalSuccess] = useState<string | null>(null);
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
+  const [resetEmailFeedback, setResetEmailFeedback] = useState<string | null>(null);
+
+  // Phone SMS OTP modal state
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+  const [phoneStep, setPhoneStep] = useState<"input" | "otp">("input");
+  const [phoneModalCountry, setPhoneModalCountry] = useState<CountryOption>(COUNTRIES[1]);
+  const [phoneModalNational, setPhoneModalNational] = useState("");
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [phoneModalError, setPhoneModalError] = useState<string | null>(null);
+  const [phoneConfirmationResult, setPhoneConfirmationResult] = useState<ConfirmationResult | null>(null);
+
+  // Security audit events state
+  const [securityEvents, setSecurityEvents] = useState<SecurityEventRecord[]>([]);
+  const [eventFilter, setEventFilter] = useState<"all" | "signin" | "password" | "session" | "provider">("all");
+  const [eventPage, setEventPage] = useState(1);
+  const EVENTS_PER_PAGE = 5;
+
+  // Security preferences state
+  const [securityPrefs, setSecurityPrefs] = useState<SecurityPreferences>({
+    newSignInAlerts: true,
+    passwordChangeAlerts: true,
+    providerLinkingAlerts: true,
+    sessionRevocationAlerts: true,
+  });
+  const [isSavingSecurityPrefs, setIsSavingSecurityPrefs] = useState(false);
+
+  // Date and Timezone formatter using user selected time zone
+  const formatUserTimestamp = (
+    ts: Date | string | number | { seconds: number; nanoseconds: number } | null | undefined
+  ): string => {
+    if (!ts) return "Unavailable";
+    let dateObj: Date;
+    if (typeof ts === "object" && "seconds" in ts) {
+      dateObj = new Date(ts.seconds * 1000);
+    } else if (typeof ts === "string" || typeof ts === "number") {
+      dateObj = new Date(ts);
+    } else if (ts instanceof Date) {
+      dateObj = ts;
+    } else {
+      return "Unavailable";
+    }
+
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone || "UTC",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }).format(dateObj);
+    } catch {
+      return dateObj.toLocaleString();
+    }
+  };
+
+  // Relative timestamp calculation
+  const formatRelativeTime = (timestamp: any): string => {
+    if (!timestamp) return "Active now";
+    let millis = 0;
+    if (timestamp?.seconds) {
+      millis = timestamp.seconds * 1000;
+    } else if (timestamp instanceof Date) {
+      millis = timestamp.getTime();
+    } else if (typeof timestamp === "string" || typeof timestamp === "number") {
+      millis = new Date(timestamp).getTime();
+    }
+    if (!millis) return "Active now";
+    const diffSec = Math.floor((Date.now() - millis) / 1000);
+    if (diffSec < 45) return "Active now";
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  };
+
+  // Password strength calculation
+  const getPasswordStrength = (pass: string): { score: number; label: string; classColor: string } => {
+    if (!pass) return { score: 0, label: "Empty", classColor: "" };
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+
+    switch (score) {
+      case 1:
+        return { score: 1, label: "Weak", classColor: styles.strengthBarActiveRed };
+      case 2:
+        return { score: 2, label: "Fair", classColor: styles.strengthBarActiveYellow };
+      case 3:
+        return { score: 3, label: "Good", classColor: styles.strengthBarActiveYellow };
+      case 4:
+        return { score: 4, label: "Strong", classColor: styles.strengthBarActiveGreen };
+      default:
+        return { score: 0, label: "Too Short", classColor: "" };
+    }
+  };
+
+  // Real-time Session registration, heartbeat, and remote revocation listener
+  useEffect(() => {
+    if (!currentUser) return;
+    const sessId = getOrCreateSessionId();
+    setCurrentSessionId(sessId);
+
+    // Register session with server-inspected device metadata and public IP
+    registerSession(currentUser.uid).catch((err) => console.error("Session register notice:", err));
+
+    // Throttled heartbeat to update last seen timestamp
+    const heartbeatInterval = setInterval(() => {
+      updateSessionHeartbeat(currentUser.uid).catch(() => {});
+    }, 60000);
+
+    // Real-time listener for active sessions
+    const sessionsCol = collection(db, "users", currentUser.uid, "sessions");
+    const unsubSessions = onSnapshot(sessionsCol, (snap) => {
+      const list: SessionRecord[] = [];
+      snap.forEach((d) => {
+        list.push(d.data() as SessionRecord);
+      });
+
+      // Sort current session first, then active by lastSeenAt desc
+      list.sort((a, b) => {
+        if (a.id === sessId) return -1;
+        if (b.id === sessId) return 1;
+        const timeA = (a.lastSeenAt as any)?.seconds || 0;
+        const timeB = (b.lastSeenAt as any)?.seconds || 0;
+        return timeB - timeA;
+      });
+
+      setSessions(list);
+      setIsLoadingSessions(false);
+
+      // Enforce live session revocation: if current session was revoked remotely, immediately force logout
+      const currentDoc = list.find((s) => s.id === sessId);
+      if (currentDoc && currentDoc.revoked) {
+        alert("Your session has been terminated remotely from another device or administrator.");
+        signOut(auth).then(() => {
+          localStorage.removeItem("operatsi_session_id");
+          router.push("/");
+        });
+      }
+    });
+
+    // Real-time listener for security audit trail
+    const eventsCol = collection(db, "users", currentUser.uid, "security_events");
+    const qEvents = query(eventsCol, orderBy("timestamp", "desc"), limit(50));
+    const unsubEvents = onSnapshot(
+      qEvents,
+      (snap) => {
+        const evList: SecurityEventRecord[] = [];
+        snap.forEach((d) => {
+          evList.push(d.data() as SecurityEventRecord);
+        });
+        setSecurityEvents(evList);
+      },
+      (err) => {
+        console.warn("Security events listener notice:", err);
+      }
+    );
+
+    // Load security preferences
+    getSecurityPreferences(currentUser.uid).then(setSecurityPrefs);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      unsubSessions();
+      unsubEvents();
+    };
+  }, [currentUser, router]);
+
+  // Handle email verification resend
+  const handleResendEmailVerification = async () => {
+    if (!currentUser || isSendingVerification || emailVerificationCooldown > 0) return;
+    setIsSendingVerification(true);
+    setEmailVerificationFeedback(null);
+    try {
+      await sendEmailVerification(currentUser);
+      setEmailVerificationFeedback({
+        type: "success",
+        text: `Verification link sent to ${currentUser.email}. Please check your inbox and spam folder.`,
+      });
+      setEmailVerificationCooldown(60);
+      const timer = setInterval(() => {
+        setEmailVerificationCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      if (err.code === "auth/too-many-requests") {
+        setEmailVerificationFeedback({
+          type: "error",
+          text: "Verification emails are rate-limited. Please wait a moment before requesting another.",
+        });
+      } else {
+        setEmailVerificationFeedback({
+          type: "error",
+          text: err.message || "Failed to send verification email.",
+        });
+      }
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
+
+  // Handle primary email update
+  const handleUpdateEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !newEmailInput.trim()) return;
+    setIsUpdatingEmail(true);
+    setEmailModalError(null);
+    setEmailModalSuccess(null);
+
+    try {
+      const hasPassword = currentUser.providerData.some((p) => p.providerId === "password");
+      if (hasPassword && emailPasswordConfirm) {
+        const cred = EmailAuthProvider.credential(currentUser.email!, emailPasswordConfirm);
+        await reauthenticateWithCredential(currentUser, cred);
+      }
+
+      await verifyBeforeUpdateEmail(currentUser, newEmailInput.trim());
+
+      await logSecurityEvent(currentUser.uid, {
+        eventType: "email_changed",
+        eventTitle: "Email Update Requested",
+        status: "warning",
+        details: `Verification dispatched to transition primary email to ${newEmailInput.trim()}.`,
+      });
+
+      setEmailModalSuccess(
+        `Verification email sent to ${newEmailInput.trim()}. Click the link in the message to finalize your primary email update.`
+      );
+      setTimeout(() => {
+        setIsEmailModalOpen(false);
+        setNewEmailInput("");
+        setEmailPasswordConfirm("");
+        setEmailModalSuccess(null);
+      }, 3500);
+    } catch (err: any) {
+      if (err.code === "auth/requires-recent-login") {
+        setEmailModalError("Security timeout: Please enter your current password to authorize this email change.");
+      } else if (err.code === "auth/email-already-in-use") {
+        setEmailModalError("This email address is already associated with another OperatSI account.");
+      } else if (err.code === "auth/invalid-email") {
+        setEmailModalError("Please enter a valid RFC-compliant email address.");
+      } else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        setEmailModalError("Incorrect password. Reauthentication failed.");
+      } else {
+        setEmailModalError(err.message || "Failed to update email address.");
+      }
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  };
+
+  // Handle password modification or initial credential creation
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordModalError("New password and confirmation do not match.");
+      return;
+    }
+    if (newPasswordInput.length < 8) {
+      setPasswordModalError("Password must be at least 8 characters in length.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setPasswordModalError(null);
+    setPasswordModalSuccess(null);
+
+    try {
+      const hasPassword = currentUser.providerData.some((p) => p.providerId === "password");
+      if (hasPassword) {
+        const cred = EmailAuthProvider.credential(currentUser.email!, currentPasswordInput);
+        await reauthenticateWithCredential(currentUser, cred);
+        await updatePassword(currentUser, newPasswordInput);
+      } else {
+        const cred = EmailAuthProvider.credential(currentUser.email!, newPasswordInput);
+        await linkWithCredential(currentUser, cred);
+      }
+
+      await logSecurityEvent(currentUser.uid, {
+        eventType: "password_changed",
+        eventTitle: "Account Password Updated",
+        status: "success",
+        details: hasPassword ? "User updated their account password." : "Added password authentication to account.",
+      });
+
+      setPasswordModalSuccess("Password successfully updated. You can now use it to sign in.");
+      setTimeout(() => {
+        setIsPasswordModalOpen(false);
+        setCurrentPasswordInput("");
+        setNewPasswordInput("");
+        setConfirmPasswordInput("");
+        setPasswordModalSuccess(null);
+      }, 2000);
+    } catch (err: any) {
+      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+        setPasswordModalError("Current password is incorrect.");
+      } else if (err.code === "auth/requires-recent-login") {
+        setPasswordModalError("Recent authentication required. Please sign out and sign in again.");
+      } else if (err.code === "auth/weak-password") {
+        setPasswordModalError("Password is too weak. Please include uppercase, lowercase, numbers, and symbols.");
+      } else {
+        setPasswordModalError(err.message || "Failed to update password.");
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  // Handle password reset email dispatch
+  const handleSendResetPasswordEmail = async () => {
+    if (!currentUser?.email || isSendingResetEmail) return;
+    setIsSendingResetEmail(true);
+    setResetEmailFeedback(null);
+    try {
+      await sendPasswordResetEmail(auth, currentUser.email);
+      setResetEmailFeedback(`Password reset instructions sent to ${currentUser.email}.`);
+      await logSecurityEvent(currentUser.uid, {
+        eventType: "password_changed",
+        eventTitle: "Password Reset Link Dispatched",
+        status: "warning",
+        details: `Reset link dispatched to ${currentUser.email}.`,
+      });
+      setTimeout(() => setResetEmailFeedback(null), 5000);
+    } catch (err: any) {
+      setResetEmailFeedback(err.message || "Failed to send reset email.");
+    } finally {
+      setIsSendingResetEmail(false);
+    }
+  };
+
+  // Handle Google provider linking
+  const handleLinkGoogle = async () => {
+    if (!currentUser) return;
+    try {
+      const provider = new GoogleAuthProvider();
+      await linkWithPopup(currentUser, provider);
+      await currentUser.reload();
+      setCurrentUser({ ...auth.currentUser } as User);
+      await logSecurityEvent(currentUser.uid, {
+        eventType: "provider_linked",
+        eventTitle: "Google Account Connected",
+        status: "success",
+        details: "Linked Google Workspace account as an authentication provider.",
+      });
+      setSessionActionFeedback("Google account linked successfully.");
+      setTimeout(() => setSessionActionFeedback(null), 3500);
+    } catch (err: any) {
+      if (err.code === "auth/credential-already-in-use") {
+        alert("This Google account is already linked to another OperatSI user.");
+      } else if (err.code === "auth/popup-blocked") {
+        alert("Authentication popup was blocked. Please allow popups for OperatSI.");
+      } else if (err.code !== "auth/popup-closed-by-user") {
+        alert("Failed to link Google account: " + (err.message || "Unknown error"));
+      }
+    }
+  };
+
+  // Handle Apple ID linking
+  const handleLinkApple = async () => {
+    if (!currentUser) return;
+    try {
+      const provider = new OAuthProvider("apple.com");
+      provider.addScope("email");
+      provider.addScope("name");
+      await linkWithPopup(currentUser, provider);
+      await currentUser.reload();
+      setCurrentUser({ ...auth.currentUser } as User);
+      await logSecurityEvent(currentUser.uid, {
+        eventType: "provider_linked",
+        eventTitle: "Apple ID Connected",
+        status: "success",
+        details: "Linked Apple ID as an authentication provider.",
+      });
+      setSessionActionFeedback("Apple ID linked successfully.");
+      setTimeout(() => setSessionActionFeedback(null), 3500);
+    } catch (err: any) {
+      if (err.code === "auth/credential-already-in-use") {
+        alert("This Apple ID is already linked to another OperatSI user.");
+      } else if (err.code !== "auth/popup-closed-by-user") {
+        alert("Failed to link Apple ID: " + (err.message || "Unknown error"));
+      }
+    }
+  };
+
+  // Handle provider unlinking
+  const handleUnlinkProvider = async (providerId: string, providerName: string) => {
+    if (!currentUser) return;
+    if (currentUser.providerData.length <= 1) {
+      alert("You cannot remove your only active sign-in method. Please connect another provider or set a password first.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Are you sure you want to disconnect ${providerName}? You will no longer be able to use this method to log into OperatSI.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await unlink(currentUser, providerId);
+      await currentUser.reload();
+      setCurrentUser({ ...auth.currentUser } as User);
+      await logSecurityEvent(currentUser.uid, {
+        eventType: "provider_unlinked",
+        eventTitle: `${providerName} Disconnected`,
+        status: "warning",
+        details: `Unlinked ${providerName} credential from account.`,
+      });
+      setSessionActionFeedback(`${providerName} disconnected.`);
+      setTimeout(() => setSessionActionFeedback(null), 3500);
+    } catch (err: any) {
+      alert("Failed to disconnect provider: " + (err.message || "Unknown error"));
+    }
+  };
+
+  // Handle Phone modal open
+  const handleOpenPhoneVerification = () => {
+    setIsPhoneModalOpen(true);
+    setPhoneStep("input");
+    setPhoneModalCountry(selectedCountry);
+    setPhoneModalNational(phoneNational);
+    setPhoneOtpCode("");
+    setPhoneModalError(null);
+  };
+
+  // Handle dispatching SMS OTP
+  const handleSendPhoneOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !phoneModalNational.trim()) {
+      setPhoneModalError("Please enter a valid mobile number.");
+      return;
+    }
+    setIsSendingOtp(true);
+    setPhoneModalError(null);
+
+    const fullPhone = `${phoneModalCountry.dialCode}${phoneModalNational.trim().replace(/\D/g, "")}`;
+
+    try {
+      if (typeof window !== "undefined") {
+        const anyWindow = window as any;
+        if (!anyWindow.operatsiRecaptchaVerifier) {
+          anyWindow.operatsiRecaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+            size: "invisible",
+          });
+        }
+
+        const confirmation = await linkWithPhoneNumber(
+          currentUser,
+          fullPhone,
+          anyWindow.operatsiRecaptchaVerifier
+        );
+        setPhoneConfirmationResult(confirmation);
+        setPhoneStep("otp");
+      }
+    } catch (err: any) {
+      if (err.code === "auth/invalid-phone-number") {
+        setPhoneModalError("The phone number format is invalid. Please check the dial code and digits.");
+      } else if (err.code === "auth/credential-already-in-use") {
+        setPhoneModalError("This mobile number is already linked to another OperatSI account.");
+      } else if (err.code === "auth/too-many-requests") {
+        setPhoneModalError("SMS rate limit reached. Please try again later.");
+      } else {
+        setPhoneModalError(err.message || "Failed to dispatch SMS verification code.");
+      }
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  // Handle OTP verification and linking
+  const handleVerifyPhoneOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneConfirmationResult || phoneOtpCode.trim().length < 6) {
+      setPhoneModalError("Please enter the 6-digit code received via SMS.");
+      return;
+    }
+    setIsVerifyingOtp(true);
+    setPhoneModalError(null);
+
+    try {
+      await phoneConfirmationResult.confirm(phoneOtpCode.trim());
+      await currentUser?.reload();
+      setCurrentUser({ ...auth.currentUser } as User);
+
+      const fullPhoneNumber = `${phoneModalCountry.dialCode} ${phoneModalNational.trim()}`;
+      await setDoc(
+        doc(db, "users", currentUser!.uid),
+        {
+          phoneNumber: fullPhoneNumber,
+          mobileNumber: fullPhoneNumber,
+          phoneCountryCode: phoneModalCountry.code,
+          phoneDialCode: phoneModalCountry.dialCode,
+          phoneNational: phoneModalNational.trim(),
+          phoneVerified: true,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setSelectedCountry(phoneModalCountry);
+      setPhoneNational(phoneModalNational.trim());
+
+      await logSecurityEvent(currentUser!.uid, {
+        eventType: "phone_verified",
+        eventTitle: "Mobile Number Verified",
+        status: "success",
+        details: `Verified and linked mobile number ${fullPhoneNumber} via SMS OTP.`,
+      });
+
+      setSessionActionFeedback("Mobile number verified and linked successfully.");
+      setIsPhoneModalOpen(false);
+      setTimeout(() => setSessionActionFeedback(null), 3500);
+    } catch (err: any) {
+      if (err.code === "auth/invalid-verification-code") {
+        setPhoneModalError("Invalid SMS verification code. Please check and re-enter.");
+      } else if (err.code === "auth/code-expired") {
+        setPhoneModalError("SMS code has expired. Please request a new code.");
+      } else {
+        setPhoneModalError(err.message || "Failed to verify code.");
+      }
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  // Revoke a single remote session
+  const handleRevokeSingleSession = async (sessionId: string) => {
+    if (!currentUser) return;
+    const confirmed = window.confirm("Are you sure you want to terminate this remote login session?");
+    if (!confirmed) return;
+    try {
+      await revokeSession(currentUser.uid, sessionId, "Terminated by user from settings");
+      setSessionActionFeedback("Session terminated successfully.");
+      setTimeout(() => setSessionActionFeedback(null), 3000);
+    } catch (err) {
+      alert("Failed to terminate session.");
+    }
+  };
+
+  // Action A: Log out current session
+  const handleLogoutCurrentSession = async () => {
+    const confirmed = window.confirm("Are you sure you want to log out of your current session?");
+    if (!confirmed) return;
+    try {
+      if (currentUser && currentSessionId) {
+        await revokeSession(currentUser.uid, currentSessionId, "User initiated standard logout");
+      }
+      await signOut(auth);
+      localStorage.removeItem("operatsi_session_id");
+      router.push("/");
+    } catch (err) {
+      console.error("Logout error:", err);
+      router.push("/");
+    }
+  };
+
+  // Action B: Log out other devices
+  const handleConfirmLogoutOtherDevices = async () => {
+    if (!currentUser) return;
+    setIsLoggingOutOthers(true);
+    try {
+      const revokedCount = await revokeOtherSessions(currentUser.uid, currentSessionId);
+      setIsLogoutOthersModalOpen(false);
+      setSessionActionFeedback(`Successfully logged out ${revokedCount} other device(s). Your current session remains active.`);
+      setTimeout(() => setSessionActionFeedback(null), 4000);
+    } catch (err) {
+      alert("Failed to log out other devices. Please try again.");
+    } finally {
+      setIsLoggingOutOthers(false);
+    }
+  };
+
+  // Action C: Log out all devices
+  const handleConfirmLogoutAllDevices = async () => {
+    if (!currentUser) return;
+    setIsLoggingOutAll(true);
+    try {
+      await revokeAllSessions(currentUser.uid);
+      await signOut(auth);
+      localStorage.removeItem("operatsi_session_id");
+      setIsLogoutAllModalOpen(false);
+      router.push("/");
+    } catch (err) {
+      console.error("Logout all error:", err);
+      router.push("/");
+    } finally {
+      setIsLoggingOutAll(false);
+    }
+  };
+
+  // Toggle security preferences with autosave
+  const handleToggleSecurityPref = async (key: keyof SecurityPreferences) => {
+    if (!currentUser) return;
+    const updated = {
+      ...securityPrefs,
+      [key]: !securityPrefs[key],
+    };
+    setSecurityPrefs(updated);
+    setIsSavingSecurityPrefs(true);
+    try {
+      await updateSecurityPreferences(currentUser.uid, { [key]: updated[key] });
+    } catch (err) {
+      console.error("Failed to update security pref:", err);
+    } finally {
+      setIsSavingSecurityPrefs(false);
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -919,238 +1623,866 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* 2. ACCOUNT & SIGN-IN */}
+            {/* 2. ACCOUNT & SIGN-IN (PRODUCTION-GRADE REAL-TIME ARCHITECTURE) */}
             {activeSection === "account" && (
               <div>
+                {/* Page Header */}
                 <header className={styles.pageHeader}>
                   <div className={styles.pageTitleGroup}>
-                    <h1 className={styles.pageTitle}>
-                      <KeyRoundIcon size={20} />
-                      <span>Account &amp; Sign-in</span>
-                    </h1>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                      <h1 className={styles.pageTitle} style={{ margin: 0 }}>
+                        <KeyRoundIcon size={20} />
+                        <span>Account &amp; Sign-in</span>
+                      </h1>
+                      {currentUser && (
+                        <span className={styles.accountHeaderBadge}>
+                          <CheckIcon size={12} />
+                          <span>Authenticated</span>
+                        </span>
+                      )}
+                      {currentUser?.emailVerified ? (
+                        <span className={styles.accountHeaderBadge}>
+                          <CheckIcon size={12} />
+                          <span>Email Verified</span>
+                        </span>
+                      ) : (
+                        <span className={`${styles.accountHeaderBadge} ${styles.accountHeaderBadgeWarning}`}>
+                          <AlertCircleIcon size={12} />
+                          <span>Verification Required</span>
+                        </span>
+                      )}
+                    </div>
                     <p className={styles.pageDescription}>
-                      Manage authentication credentials, federated OAuth providers, verified phone number, and active login sessions.
+                      Manage your login methods, verified contact information, active sessions, and account security.
                     </p>
                   </div>
                 </header>
 
-                {/* Email & Phone */}
+                {sessionActionFeedback && (
+                  <div className={`${styles.feedbackToast} ${styles.toastSuccess}`} style={{ marginBottom: "1.25rem" }}>
+                    <CheckIcon size={14} />
+                    <span>{sessionActionFeedback}</span>
+                  </div>
+                )}
+
+                {/* 1. ACCOUNT INFORMATION */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <div>
-                      <h2 className={styles.sectionHeaderTitle}>Sign-in Credentials</h2>
-                      <p className={styles.sectionHeaderSubtitle}>Primary identifiers used to authenticate into your OperatSI account.</p>
+                      <h2 className={styles.sectionHeaderTitle}>Account Information</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Identity attributes and verified security metadata retrieved from Firebase Authentication.
+                      </p>
                     </div>
                   </div>
 
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Primary Email</h3>
-                      <p className={styles.settingDesc}>{activeUserEmail}</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                    </div>
-                  </div>
-
-                  {/* Mobile Number */}
-                  <form onSubmit={handleSavePhone} style={{ paddingTop: "1rem" }}>
-                    <div className={styles.settingRow} style={{ borderBottom: "none" }}>
-                      <div className={styles.settingInfo}>
-                        <h3 className={styles.settingTitle}>Mobile Number</h3>
-                        <p className={styles.settingDesc}>Used for multi-factor authentication (MFA) and urgent security alerts.</p>
-                      </div>
+                  <div className={styles.accountInfoGrid}>
+                    <div className={styles.accountInfoCard}>
+                      <span className={styles.accountInfoLabel}>Full Name</span>
+                      <span className={styles.accountInfoValue}>{activeUserName}</span>
                     </div>
 
-                    <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start", marginTop: "0.5rem" }}>
-                      {/* Country Selector Dropdown */}
-                      <div ref={countryDropdownRef} style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          className={styles.btnSecondary}
-                          style={{ minWidth: "125px", justifyContent: "space-between" }}
-                          onClick={() => {
-                            setIsCountryDropdownOpen((prev) => !prev);
-                            setCountrySearch("");
-                          }}
-                          aria-haspopup="listbox"
-                          aria-expanded={isCountryDropdownOpen}
-                        >
-                          <span style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                            <span>{selectedCountry.flag}</span>
-                            <span style={{ fontWeight: 600 }}>{selectedCountry.dialCode}</span>
+                    <div className={styles.accountInfoCard}>
+                      <span className={styles.accountInfoLabel}>Primary Email</span>
+                      <span className={styles.accountInfoValue}>{activeUserEmail}</span>
+                    </div>
+
+                    <div className={styles.accountInfoCard}>
+                      <span className={styles.accountInfoLabel}>Email Verification</span>
+                      <div className={styles.accountInfoValue}>
+                        {currentUser?.emailVerified ? (
+                          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
+                            <CheckIcon size={12} /> Verified
                           </span>
-                          <ChevronDownIcon size={12} style={{ color: "var(--text-muted)" }} />
-                        </button>
-
-                        {isCountryDropdownOpen && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              marginTop: "4px",
-                              width: "240px",
-                              background: "var(--card-bg)",
-                              border: "1px solid var(--card-border)",
-                              borderRadius: "8px",
-                              boxShadow: "var(--modal-shadow)",
-                              zIndex: 50,
-                              padding: "0.5rem",
-                              maxHeight: "260px",
-                              overflowY: "auto",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.25rem 0.5rem 0.5rem" }}>
-                              <SearchIcon size={13} style={{ color: "var(--text-muted)" }} />
-                              <input
-                                type="text"
-                                placeholder="Search country..."
-                                value={countrySearch}
-                                onChange={(e) => setCountrySearch(e.target.value)}
-                                className={styles.input}
-                                style={{ padding: "0.25rem 0.45rem", fontSize: "0.75rem" }}
-                                autoFocus
-                              />
-                            </div>
-
-                            {COUNTRIES.filter(
-                              (c) =>
-                                c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-                                c.dialCode.includes(countrySearch)
-                            ).map((country) => (
-                              <button
-                                key={country.code}
-                                type="button"
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  width: "100%",
-                                  padding: "0.45rem 0.65rem",
-                                  background: selectedCountry.code === country.code ? "rgba(37,99,235,0.12)" : "transparent",
-                                  border: "none",
-                                  borderRadius: "6px",
-                                  color: "var(--text-primary)",
-                                  fontSize: "0.785rem",
-                                  cursor: "pointer",
-                                  textAlign: "left",
-                                }}
-                                onClick={() => {
-                                  setSelectedCountry(country);
-                                  setIsCountryDropdownOpen(false);
-                                }}
-                              >
-                                <span>{country.flag} {country.name}</span>
-                                <span style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>{country.dialCode}</span>
-                              </button>
-                            ))}
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                            <span className={`${styles.badge} ${styles.badgeWarning}`}>Unverified</span>
+                            <button
+                              type="button"
+                              className={styles.btnSecondary}
+                              style={{ padding: "0.2rem 0.5rem", fontSize: "0.72rem" }}
+                              onClick={handleResendEmailVerification}
+                              disabled={isSendingVerification || emailVerificationCooldown > 0}
+                            >
+                              {isSendingVerification ? (
+                                <SpinnerIcon size={12} />
+                              ) : emailVerificationCooldown > 0 ? (
+                                `Resend in ${emailVerificationCooldown}s`
+                              ) : (
+                                "Resend Link"
+                              )}
+                            </button>
                           </div>
                         )}
                       </div>
-
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        placeholder="Enter phone number"
-                        value={phoneNational}
-                        onChange={(e) => setPhoneNational(e.target.value)}
-                        className={styles.input}
-                        style={{ maxWidth: "260px" }}
-                      />
-
-                      <button type="submit" className={styles.btnPrimary} disabled={isSavingPhone}>
-                        {isSavingPhone ? <SpinnerIcon size={14} /> : <CheckIcon size={14} />}
-                        <span>Save Phone</span>
-                      </button>
                     </div>
 
-                    {phoneMessage && (
-                      <div className={`${styles.feedbackToast} ${phoneMessage.type === "success" ? styles.toastSuccess : styles.toastError}`}>
-                        {phoneMessage.type === "success" ? <CheckIcon size={14} /> : <AlertCircleIcon size={14} />}
-                        <span>{phoneMessage.text}</span>
+                    <div className={styles.accountInfoCard}>
+                      <span className={styles.accountInfoLabel}>Primary Mobile</span>
+                      <div className={styles.accountInfoValue}>
+                        <span>{phoneNational ? `${selectedCountry.dialCode} ${phoneNational}` : "Not configured"}</span>
+                        {currentUser?.phoneNumber || phoneNational ? (
+                          <span className={`${styles.badge} ${styles.badgeSuccess}`}>Saved</span>
+                        ) : (
+                          <span className={`${styles.badge} ${styles.badgeNeutral}`}>Unlinked</span>
+                        )}
                       </div>
-                    )}
-                  </form>
+                    </div>
+
+                    <div className={styles.accountInfoCard}>
+                      <span className={styles.accountInfoLabel}>Account Created</span>
+                      <span className={styles.accountInfoValue}>
+                        {formatUserTimestamp(currentUser?.metadata?.creationTime)}
+                      </span>
+                    </div>
+
+                    <div className={styles.accountInfoCard}>
+                      <span className={styles.accountInfoLabel}>Last Sign-in</span>
+                      <span className={styles.accountInfoValue}>
+                        {formatUserTimestamp(currentUser?.metadata?.lastSignInTime)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {emailVerificationFeedback && (
+                    <div
+                      className={`${styles.feedbackToast} ${
+                        emailVerificationFeedback.type === "success" ? styles.toastSuccess : styles.toastError
+                      }`}
+                      style={{ marginTop: "0.75rem" }}
+                    >
+                      {emailVerificationFeedback.type === "success" ? <CheckIcon size={14} /> : <AlertCircleIcon size={14} />}
+                      <span>{emailVerificationFeedback.text}</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Connected Accounts */}
+                {/* 2. EMAIL ADDRESS MANAGEMENT */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <div>
-                      <h2 className={styles.sectionHeaderTitle}>Connected OAuth Providers</h2>
-                      <p className={styles.sectionHeaderSubtitle}>Sign in faster using enterprise federated single sign-on.</p>
+                      <h2 className={styles.sectionHeaderTitle}>Email Address Management</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Your primary email address is used for workspace notifications, audit records, and account recovery.
+                      </p>
                     </div>
                   </div>
 
                   <div className={styles.settingRow}>
                     <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle} style={{ gap: "0.65rem" }}>
-                        <GoogleIcon size={18} />
-                        <span>Google Workspace Account</span>
-                      </h3>
-                      <p className={styles.settingDesc}>Connected as {activeUserEmail}</p>
+                      <h3 className={styles.settingTitle}>Current Primary Email</h3>
+                      <p className={styles.settingDesc}>{activeUserEmail}</p>
                     </div>
                     <div className={styles.settingControl}>
-                      <span className={`${styles.badge} ${styles.badgeSuccess}`}>Connected</span>
-                    </div>
-                  </div>
-
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle} style={{ gap: "0.65rem" }}>
-                        <AppleIcon size={18} />
-                        <span>Apple ID</span>
-                      </h3>
-                      <p className={styles.settingDesc}>Authenticate using Touch ID and Apple Passkeys.</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                      <button type="button" className={styles.btnSecondary} onClick={() => alert("Redirecting to Apple ID authentication flow...")}>
-                        Connect Apple
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        onClick={() => {
+                          setNewEmailInput("");
+                          setEmailPasswordConfirm("");
+                          setEmailModalError(null);
+                          setEmailModalSuccess(null);
+                          setIsEmailModalOpen(true);
+                        }}
+                      >
+                        Change Email
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Active Sessions */}
+                {/* 3. PASSWORD & AUTHENTICATION */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <div>
-                      <h2 className={styles.sectionHeaderTitle}>Active Login Sessions</h2>
-                      <p className={styles.sectionHeaderSubtitle}>Devices currently authenticated into this OperatSI account.</p>
+                      <h2 className={styles.sectionHeaderTitle}>Password &amp; Authentication</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Manage your password credential for direct login without third-party identity providers.
+                      </p>
                     </div>
-                    <button type="button" className={styles.btnSecondary} onClick={() => alert("All other active sessions have been revoked.")}>
-                      Revoke Other Sessions
-                    </button>
                   </div>
 
-                  <div className={styles.tableWrapper}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>Device / Browser</th>
-                          <th>Location</th>
-                          <th>IP Address</th>
-                          <th>Activity</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ fontWeight: 600 }}>Chrome on Windows 11</td>
-                          <td>New York, United States</td>
-                          <td>198.51.100.24</td>
-                          <td>Active now</td>
-                          <td><span className={`${styles.badge} ${styles.badgeSuccess}`}>Current Session</span></td>
-                        </tr>
-                        <tr>
-                          <td style={{ fontWeight: 600 }}>Safari on macOS Sonoma</td>
-                          <td>San Francisco, United States</td>
-                          <td>192.0.2.14</td>
-                          <td>2 hours ago</td>
-                          <td><span className={`${styles.badge} ${styles.badgeNeutral}`}>Active</span></td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  {currentUser?.providerData.some((p) => p.providerId === "password") ? (
+                    <>
+                      <div className={styles.settingRow}>
+                        <div className={styles.settingInfo}>
+                          <h3 className={styles.settingTitle}>Account Password</h3>
+                          <p className={styles.settingDesc}>
+                            Password authentication is active on your account. To maintain security, use a unique password.
+                          </p>
+                        </div>
+                        <div className={styles.settingControl}>
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            onClick={() => {
+                              setCurrentPasswordInput("");
+                              setNewPasswordInput("");
+                              setConfirmPasswordInput("");
+                              setPasswordModalError(null);
+                              setPasswordModalSuccess(null);
+                              setIsPasswordModalOpen(true);
+                            }}
+                          >
+                            Change Password
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className={styles.settingRow}>
+                        <div className={styles.settingInfo}>
+                          <h3 className={styles.settingTitle}>Forgot / Reset Password</h3>
+                          <p className={styles.settingDesc}>
+                            Dispatch a secure password reset link to your verified email address: {activeUserEmail}
+                          </p>
+                        </div>
+                        <div className={styles.settingControl}>
+                          <button
+                            type="button"
+                            className={styles.btnSecondary}
+                            onClick={handleSendResetPasswordEmail}
+                            disabled={isSendingResetEmail}
+                          >
+                            {isSendingResetEmail ? <SpinnerIcon size={14} /> : null}
+                            <span>Send Reset Link</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {resetEmailFeedback && (
+                        <div className={`${styles.feedbackToast} ${styles.toastSuccess}`} style={{ marginTop: "0.75rem" }}>
+                          <CheckIcon size={14} />
+                          <span>{resetEmailFeedback}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className={styles.settingRow}>
+                      <div className={styles.settingInfo}>
+                        <h3 className={styles.settingTitle}>Password Authentication</h3>
+                        <p className={styles.settingDesc}>
+                          Your account currently authenticates exclusively via federated Single Sign-On (Google / Apple). You can add an account password to enable direct email sign-in.
+                        </p>
+                      </div>
+                      <div className={styles.settingControl}>
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => {
+                            setCurrentPasswordInput("");
+                            setNewPasswordInput("");
+                            setConfirmPasswordInput("");
+                            setPasswordModalError(null);
+                            setPasswordModalSuccess(null);
+                            setIsPasswordModalOpen(true);
+                          }}
+                        >
+                          Set Account Password
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. CONNECTED SIGN-IN METHODS */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionHeaderTitle}>Connected Sign-in Methods</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Link external identity providers to sign in with a single click while preserving your unique user UID.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Email & Password Provider */}
+                  <div className={styles.providerRow}>
+                    <div className={styles.providerLeft}>
+                      <div className={styles.providerLogo}>
+                        <KeyRoundIcon size={18} />
+                      </div>
+                      <div className={styles.providerDetails}>
+                        <div className={styles.providerName}>
+                          <span>Email &amp; Password</span>
+                          {currentUser?.providerData.some((p) => p.providerId === "password") ? (
+                            <span className={`${styles.badge} ${styles.badgeSuccess}`}>Connected</span>
+                          ) : (
+                            <span className={`${styles.badge} ${styles.badgeNeutral}`}>Not Configured</span>
+                          )}
+                        </div>
+                        <span className={styles.providerSubtitle}>
+                          {currentUser?.providerData.some((p) => p.providerId === "password")
+                            ? `Authenticated via ${activeUserEmail}`
+                            : "Add a password to sign in without external providers"}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      {currentUser?.providerData.some((p) => p.providerId === "password") ? (
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => {
+                            setCurrentPasswordInput("");
+                            setNewPasswordInput("");
+                            setConfirmPasswordInput("");
+                            setPasswordModalError(null);
+                            setIsPasswordModalOpen(true);
+                          }}
+                        >
+                          Update
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => {
+                            setCurrentPasswordInput("");
+                            setNewPasswordInput("");
+                            setConfirmPasswordInput("");
+                            setPasswordModalError(null);
+                            setIsPasswordModalOpen(true);
+                          }}
+                        >
+                          Enable Password
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Google Workspace */}
+                  <div className={styles.providerRow}>
+                    <div className={styles.providerLeft}>
+                      <div className={styles.providerLogo}>
+                        <GoogleIcon size={18} />
+                      </div>
+                      <div className={styles.providerDetails}>
+                        <div className={styles.providerName}>
+                          <span>Google Workspace</span>
+                          {currentUser?.providerData.some((p) => p.providerId === "google.com") ? (
+                            <span className={`${styles.badge} ${styles.badgeSuccess}`}>Connected</span>
+                          ) : (
+                            <span className={`${styles.badge} ${styles.badgeNeutral}`}>Not Connected</span>
+                          )}
+                        </div>
+                        <span className={styles.providerSubtitle}>
+                          {currentUser?.providerData.some((p) => p.providerId === "google.com")
+                            ? `Linked to ${currentUser.providerData.find((p) => p.providerId === "google.com")?.email || activeUserEmail}`
+                            : "Seamless enterprise authentication with your Google Account"}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      {currentUser?.providerData.some((p) => p.providerId === "google.com") ? (
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => handleUnlinkProvider("google.com", "Google")}
+                        >
+                          Disconnect
+                        </button>
+                      ) : (
+                        <button type="button" className={styles.btnSecondary} onClick={handleLinkGoogle}>
+                          Connect Google
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Apple ID */}
+                  <div className={styles.providerRow}>
+                    <div className={styles.providerLeft}>
+                      <div className={styles.providerLogo}>
+                        <AppleIcon size={18} />
+                      </div>
+                      <div className={styles.providerDetails}>
+                        <div className={styles.providerName}>
+                          <span>Apple ID</span>
+                          {currentUser?.providerData.some((p) => p.providerId === "apple.com") ? (
+                            <span className={`${styles.badge} ${styles.badgeSuccess}`}>Connected</span>
+                          ) : (
+                            <span className={`${styles.badge} ${styles.badgeNeutral}`}>Not Connected</span>
+                          )}
+                        </div>
+                        <span className={styles.providerSubtitle}>
+                          {currentUser?.providerData.some((p) => p.providerId === "apple.com")
+                            ? "Linked with Apple Sign-in credentials"
+                            : "Authenticate using Apple Passkeys and Face ID / Touch ID"}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      {currentUser?.providerData.some((p) => p.providerId === "apple.com") ? (
+                        <button
+                          type="button"
+                          className={styles.btnSecondary}
+                          onClick={() => handleUnlinkProvider("apple.com", "Apple ID")}
+                        >
+                          Disconnect
+                        </button>
+                      ) : (
+                        <button type="button" className={styles.btnSecondary} onClick={handleLinkApple}>
+                          Connect Apple
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Phone Authentication */}
+                  <div className={styles.providerRow}>
+                    <div className={styles.providerLeft}>
+                      <div className={styles.providerLogo}>
+                        <SmartphoneIcon size={18} />
+                      </div>
+                      <div className={styles.providerDetails}>
+                        <div className={styles.providerName}>
+                          <span>Phone Number (SMS OTP)</span>
+                          {currentUser?.phoneNumber || currentUser?.providerData.some((p) => p.providerId === "phone") ? (
+                            <span className={`${styles.badge} ${styles.badgeSuccess}`}>Verified</span>
+                          ) : (
+                            <span className={`${styles.badge} ${styles.badgeNeutral}`}>Unverified</span>
+                          )}
+                        </div>
+                        <span className={styles.providerSubtitle}>
+                          {currentUser?.phoneNumber
+                            ? `Linked to ${currentUser.phoneNumber}`
+                            : "Receive security verification codes directly via SMS"}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <button type="button" className={styles.btnSecondary} onClick={handleOpenPhoneVerification}>
+                        {currentUser?.phoneNumber ? "Change Number" : "Verify Phone"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. MOBILE NUMBER VERIFICATION */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionHeaderTitle}>Mobile Number Verification</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Cryptographically verified mobile number via Firebase Phone Authentication with SMS one-time password (OTP).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <h3 className={styles.settingTitle}>Current Mobile Contact</h3>
+                      <p className={styles.settingDesc}>
+                        {phoneNational ? `${selectedCountry.dialCode} ${phoneNational}` : "No verified mobile number registered."}
+                      </p>
+                    </div>
+                    <div className={styles.settingControl}>
+                      <button type="button" className={styles.btnSecondary} onClick={handleOpenPhoneVerification}>
+                        <SmartphoneIcon size={14} />
+                        <span>{phoneNational ? "Update & Verify Mobile" : "Verify Mobile Number"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. ACTIVE SESSIONS & REAL DEVICES */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+                        <h2 className={styles.sectionHeaderTitle}>Active Sessions &amp; Devices</h2>
+                        <span className={styles.accountHeaderBadge} style={{ fontSize: "0.68rem" }}>
+                          Live Synced
+                        </span>
+                      </div>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Real-time application session records derived from trusted server-side request inspection (User-Agent &amp; public IP geolocation).
+                      </p>
+                    </div>
+                  </div>
+
+                  {isLoadingSessions ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "1.5rem 0", color: "var(--text-muted)" }}>
+                      <SpinnerIcon size={16} />
+                      <span>Loading active session registry...</span>
+                    </div>
+                  ) : sessions.filter((s) => !s.revoked).length === 0 ? (
+                    <div style={{ padding: "1.5rem 0", color: "var(--text-muted)", fontSize: "0.825rem" }}>
+                      No active sessions found.
+                    </div>
+                  ) : (
+                    <div className={styles.sessionList}>
+                      {sessions
+                        .filter((s) => !s.revoked)
+                        .map((sess) => {
+                          const isCurrent = sess.id === currentSessionId;
+                          const isMobile = sess.deviceType === "Mobile";
+                          const DeviceIcon = isMobile ? SmartphoneIcon : sess.deviceType === "Tablet" ? SmartphoneIcon : LaptopIcon;
+
+                          return (
+                            <div
+                              key={sess.id}
+                              className={`${styles.sessionItem} ${isCurrent ? styles.sessionItemCurrent : ""}`}
+                            >
+                              <div className={styles.sessionItemLeft}>
+                                <div className={styles.sessionIconContainer}>
+                                  <DeviceIcon size={20} />
+                                </div>
+                                <div>
+                                  <div className={styles.sessionTitle}>
+                                    <span>
+                                      {sess.browser || "Web Browser"} on {sess.os || "Unknown OS"}
+                                    </span>
+                                    {isCurrent && (
+                                      <span className={`${styles.badge} ${styles.badgeSuccess}`}>
+                                        Current Session
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className={styles.sessionMeta}>
+                                    <span>
+                                      <GlobeIcon size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
+                                      {sess.location || "Location unavailable"}
+                                    </span>
+                                    <span className={styles.sessionMetaDot} />
+                                    <span>IP: {sess.ipAddress}</span>
+                                    <span className={styles.sessionMetaDot} />
+                                    <span>Last active: {formatRelativeTime(sess.lastSeenAt)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                {!isCurrent && (
+                                  <button
+                                    type="button"
+                                    className={styles.btnSecondary}
+                                    style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem" }}
+                                    onClick={() => handleRevokeSingleSession(sess.id)}
+                                  >
+                                    Revoke Session
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 7. LOGOUT & SESSION CONTROL (REQUIRED DEDICATED SECTION) */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionHeaderTitle}>Logout &amp; Session Control</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Fine-grained controls to terminate application sessions across this browser or all connected devices.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={styles.logoutGrid}>
+                    {/* Action A: Log Out */}
+                    <div className={styles.logoutCard}>
+                      <div>
+                        <div className={styles.logoutCardTitle}>
+                          <LogOutIcon size={16} />
+                          <span>Current Session</span>
+                        </div>
+                        <p className={styles.logoutCardDesc}>
+                          Sign out of OperatSI on this browser. Sessions on your other devices will remain uninterrupted.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        style={{ width: "100%", justifyContent: "center" }}
+                        onClick={handleLogoutCurrentSession}
+                      >
+                        <LogOutIcon size={14} />
+                        <span>Log Out</span>
+                      </button>
+                    </div>
+
+                    {/* Action B: Log Out Other Devices */}
+                    <div className={styles.logoutCard}>
+                      <div>
+                        <div className={styles.logoutCardTitle}>
+                          <ShieldAlertIcon size={16} />
+                          <span>Other Devices</span>
+                        </div>
+                        <p className={styles.logoutCardDesc}>
+                          Immediately revoke all other active sessions across your laptops, tablets, and phones while keeping this browser active.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.btnWarningOutline}
+                        onClick={() => setIsLogoutOthersModalOpen(true)}
+                      >
+                        <ShieldAlertIcon size={14} />
+                        <span>Log Out Other Devices</span>
+                      </button>
+                    </div>
+
+                    {/* Action C: Log Out All Devices */}
+                    <div className={styles.logoutCard}>
+                      <div>
+                        <div className={styles.logoutCardTitle} style={{ color: "#ef4444" }}>
+                          <AlertCircleIcon size={16} />
+                          <span>All Devices</span>
+                        </div>
+                        <p className={styles.logoutCardDesc}>
+                          Revoke all active sessions on every device, invalidate authorization tokens, and immediately log out everywhere.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.btnDanger}
+                        style={{ width: "100%", justifyContent: "center" }}
+                        onClick={() => setIsLogoutAllModalOpen(true)}
+                      >
+                        <AlertCircleIcon size={14} />
+                        <span>Log Out All Devices</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 8. LOGIN HISTORY & SECURITY EVENTS */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionHeaderTitle}>Login History &amp; Security Audit Trail</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Cryptographically recorded authentication events, password updates, and session revocations.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div className={styles.filterBar}>
+                    {(
+                      [
+                        { key: "all", label: "All Events" },
+                        { key: "signin", label: "Sign-ins" },
+                        { key: "password", label: "Password" },
+                        { key: "session", label: "Sessions & Logout" },
+                        { key: "provider", label: "Providers & Contacts" },
+                      ] as const
+                    ).map((f) => (
+                      <button
+                        key={f.key}
+                        type="button"
+                        className={`${styles.filterPill} ${eventFilter === f.key ? styles.filterPillActive : ""}`}
+                        onClick={() => {
+                          setEventFilter(f.key);
+                          setEventPage(1);
+                        }}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Event List */}
+                  {(() => {
+                    const filtered = securityEvents.filter((ev) => {
+                      if (eventFilter === "all") return true;
+                      if (eventFilter === "signin") return ev.eventType === "signin_success" || ev.eventType === "signin_failed";
+                      if (eventFilter === "password") return ev.eventType === "password_changed";
+                      if (eventFilter === "session")
+                        return (
+                          ev.eventType === "session_revoked" ||
+                          ev.eventType === "logout_other_devices" ||
+                          ev.eventType === "logout_all_devices"
+                        );
+                      if (eventFilter === "provider")
+                        return (
+                          ev.eventType === "provider_linked" ||
+                          ev.eventType === "provider_unlinked" ||
+                          ev.eventType === "email_changed" ||
+                          ev.eventType === "phone_verified"
+                        );
+                      return true;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div style={{ padding: "1.5rem 0", color: "var(--text-muted)", fontSize: "0.825rem" }}>
+                          No audit records found matching this category filter.
+                        </div>
+                      );
+                    }
+
+                    const totalPages = Math.ceil(filtered.length / EVENTS_PER_PAGE);
+                    const pageEvents = filtered.slice((eventPage - 1) * EVENTS_PER_PAGE, eventPage * EVENTS_PER_PAGE);
+
+                    return (
+                      <>
+                        <div className={styles.eventList}>
+                          {pageEvents.map((ev) => (
+                            <div key={ev.id} className={styles.eventRow}>
+                              <div className={styles.eventLeft}>
+                                <div className={styles.eventIconWrapper}>
+                                  <HistoryIcon size={14} />
+                                </div>
+                                <div>
+                                  <div className={styles.eventTitle}>{ev.eventTitle}</div>
+                                  <div className={styles.eventMeta}>
+                                    <span>{formatUserTimestamp(ev.timestamp)}</span>
+                                    {ev.device && (
+                                      <>
+                                        <span className={styles.sessionMetaDot} />
+                                        <span>{ev.device}</span>
+                                      </>
+                                    )}
+                                    {ev.location && (
+                                      <>
+                                        <span className={styles.sessionMetaDot} />
+                                        <span>{ev.location}</span>
+                                      </>
+                                    )}
+                                    {ev.details && (
+                                      <>
+                                        <span className={styles.sessionMetaDot} />
+                                        <span>{ev.details}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <span
+                                  className={`${styles.badge} ${
+                                    ev.status === "success"
+                                      ? styles.badgeSuccess
+                                      : ev.status === "warning"
+                                      ? styles.badgeWarning
+                                      : styles.badgeDanger
+                                  }`}
+                                >
+                                  {ev.status.toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {totalPages > 1 && (
+                          <div className={styles.paginationFooter}>
+                            <span>
+                              Page {eventPage} of {totalPages} ({filtered.length} total events)
+                            </span>
+                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                              <button
+                                type="button"
+                                className={styles.btnSecondary}
+                                style={{ padding: "0.25rem 0.65rem", fontSize: "0.75rem" }}
+                                disabled={eventPage <= 1}
+                                onClick={() => setEventPage((p) => Math.max(1, p - 1))}
+                              >
+                                Previous
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.btnSecondary}
+                                style={{ padding: "0.25rem 0.65rem", fontSize: "0.75rem" }}
+                                disabled={eventPage >= totalPages}
+                                onClick={() => setEventPage((p) => Math.min(totalPages, p + 1))}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* 9. SECURITY NOTIFICATIONS */}
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <h2 className={styles.sectionHeaderTitle}>Security Notification Preferences</h2>
+                      <p className={styles.sectionHeaderSubtitle}>
+                        Direct alerts sent to {activeUserEmail} whenever critical account actions occur.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <h3 className={styles.settingTitle}>New Sign-in Alerts</h3>
+                      <p className={styles.settingDesc}>Receive an instant security notification whenever an unrecognized device or location signs into your account.</p>
+                    </div>
+                    <div className={styles.settingControl}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={securityPrefs.newSignInAlerts}
+                        className={`${styles.toggle} ${securityPrefs.newSignInAlerts ? styles.toggleActive : ""}`}
+                        onClick={() => handleToggleSecurityPref("newSignInAlerts")}
+                      >
+                        <span className={styles.toggleThumb} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <h3 className={styles.settingTitle}>Password Modification Alerts</h3>
+                      <p className={styles.settingDesc}>Urgent notification dispatched whenever your account password is changed or reset.</p>
+                    </div>
+                    <div className={styles.settingControl}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={securityPrefs.passwordChangeAlerts}
+                        className={`${styles.toggle} ${securityPrefs.passwordChangeAlerts ? styles.toggleActive : ""}`}
+                        onClick={() => handleToggleSecurityPref("passwordChangeAlerts")}
+                      >
+                        <span className={styles.toggleThumb} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <h3 className={styles.settingTitle}>OAuth Provider Linking Alerts</h3>
+                      <p className={styles.settingDesc}>Notify me whenever a new Google or Apple federated account is connected or unlinked.</p>
+                    </div>
+                    <div className={styles.settingControl}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={securityPrefs.providerLinkingAlerts}
+                        className={`${styles.toggle} ${securityPrefs.providerLinkingAlerts ? styles.toggleActive : ""}`}
+                        onClick={() => handleToggleSecurityPref("providerLinkingAlerts")}
+                      >
+                        <span className={styles.toggleThumb} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.settingRow}>
+                    <div className={styles.settingInfo}>
+                      <h3 className={styles.settingTitle}>Remote Session Revocation Alerts</h3>
+                      <p className={styles.settingDesc}>Alert me if any session is terminated remotely from another device or administrator command.</p>
+                    </div>
+                    <div className={styles.settingControl}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={securityPrefs.sessionRevocationAlerts}
+                        className={`${styles.toggle} ${securityPrefs.sessionRevocationAlerts ? styles.toggleActive : ""}`}
+                        onClick={() => handleToggleSecurityPref("sessionRevocationAlerts")}
+                      >
+                        <span className={styles.toggleThumb} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2710,6 +4042,531 @@ export default function SettingsPage() {
           </main>
         </div>
       </div>
+
+      {/* Invisible reCAPTCHA container for Phone Auth */}
+      <div id="recaptcha-container"></div>
+
+      {/* 1. Update Primary Email Modal */}
+      {isEmailModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => !isUpdatingEmail && setIsEmailModalOpen(false)}>
+          <div className={styles.modalDialog} onClick={(e) => e.stopPropagation()}>
+            <form onSubmit={handleUpdateEmail}>
+              <div className={styles.modalHeader}>
+                <div style={{ flex: 1 }}>
+                  <h3 className={styles.modalTitle}>Change Primary Email</h3>
+                  <p className={styles.modalSubtitle}>
+                    A verification link will be sent to the new email address before updating your account credentials.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isUpdatingEmail && setIsEmailModalOpen(false)}
+                  style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                  aria-label="Close dialog"
+                >
+                  <CloseIcon size={18} />
+                </button>
+              </div>
+
+              <div className={styles.modalBody}>
+                <div className={styles.formGroup} style={{ marginBottom: "1rem" }}>
+                  <label className={styles.formLabel}>Current Primary Email</label>
+                  <input
+                    type="email"
+                    className={`${styles.input} ${styles.lockedInput}`}
+                    value={activeUserEmail}
+                    readOnly
+                  />
+                </div>
+
+                <div className={styles.formGroup} style={{ marginBottom: "1rem" }}>
+                  <label className={styles.formLabel}>New Primary Email Address</label>
+                  <input
+                    type="email"
+                    className={styles.input}
+                    placeholder="Enter new email address"
+                    value={newEmailInput}
+                    onChange={(e) => setNewEmailInput(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                {currentUser?.providerData.some((p) => p.providerId === "password") && (
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Current Password (Reauthentication)</label>
+                    <input
+                      type="password"
+                      className={styles.input}
+                      placeholder="Verify your current password"
+                      value={emailPasswordConfirm}
+                      onChange={(e) => setEmailPasswordConfirm(e.target.value)}
+                      required
+                    />
+                    <span className={styles.formHint}>Required for sensitive security actions.</span>
+                  </div>
+                )}
+
+                {emailModalError && (
+                  <div className={`${styles.feedbackToast} ${styles.toastError}`} style={{ marginTop: "1rem" }}>
+                    <AlertCircleIcon size={14} />
+                    <span>{emailModalError}</span>
+                  </div>
+                )}
+
+                {emailModalSuccess && (
+                  <div className={`${styles.feedbackToast} ${styles.toastSuccess}`} style={{ marginTop: "1rem" }}>
+                    <CheckIcon size={14} />
+                    <span>{emailModalSuccess}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => setIsEmailModalOpen(false)}
+                  disabled={isUpdatingEmail}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className={styles.btnPrimary} disabled={isUpdatingEmail || !newEmailInput.trim()}>
+                  {isUpdatingEmail ? (
+                    <>
+                      <SpinnerIcon size={14} />
+                      <span>Sending Link...</span>
+                    </>
+                  ) : (
+                    <span>Send Verification Email</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Password Change / Setup Modal */}
+      {isPasswordModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => !isUpdatingPassword && setIsPasswordModalOpen(false)}>
+          <div className={styles.modalDialog} onClick={(e) => e.stopPropagation()}>
+            <form onSubmit={handleChangePassword}>
+              <div className={styles.modalHeader}>
+                <div style={{ flex: 1 }}>
+                  <h3 className={styles.modalTitle}>
+                    {currentUser?.providerData.some((p) => p.providerId === "password")
+                      ? "Change Account Password"
+                      : "Set Account Password"}
+                  </h3>
+                  <p className={styles.modalSubtitle}>
+                    {currentUser?.providerData.some((p) => p.providerId === "password")
+                      ? "Enter your current password followed by a secure new password."
+                      : "Set a password to enable direct email sign-in alongside your federated login."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isUpdatingPassword && setIsPasswordModalOpen(false)}
+                  style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                  aria-label="Close dialog"
+                >
+                  <CloseIcon size={18} />
+                </button>
+              </div>
+
+              <div className={styles.modalBody}>
+                {currentUser?.providerData.some((p) => p.providerId === "password") && (
+                  <div className={styles.formGroup} style={{ marginBottom: "1rem" }}>
+                    <label className={styles.formLabel}>Current Password</label>
+                    <input
+                      type="password"
+                      className={styles.input}
+                      placeholder="Enter existing password"
+                      value={currentPasswordInput}
+                      onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                <div className={styles.formGroup} style={{ marginBottom: "1rem" }}>
+                  <label className={styles.formLabel}>New Password</label>
+                  <input
+                    type="password"
+                    className={styles.input}
+                    placeholder="Minimum 8 characters"
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    required
+                  />
+
+                  {/* Password Strength Meter */}
+                  {newPasswordInput && (
+                    <div style={{ marginTop: "0.5rem" }}>
+                      {(() => {
+                        const strength = getPasswordStrength(newPasswordInput);
+                        return (
+                          <div>
+                            <div className={styles.strengthMeter}>
+                              <div className={`${styles.strengthBar} ${strength.score >= 1 ? strength.classColor : ""}`} />
+                              <div className={`${styles.strengthBar} ${strength.score >= 2 ? strength.classColor : ""}`} />
+                              <div className={`${styles.strengthBar} ${strength.score >= 3 ? strength.classColor : ""}`} />
+                              <div className={`${styles.strengthBar} ${strength.score >= 4 ? strength.classColor : ""}`} />
+                            </div>
+                            <span className={styles.strengthLabel}>Password Strength: {strength.label}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>Confirm New Password</label>
+                  <input
+                    type="password"
+                    className={styles.input}
+                    placeholder="Re-enter new password"
+                    value={confirmPasswordInput}
+                    onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                    required
+                  />
+                </div>
+
+                {passwordModalError && (
+                  <div className={`${styles.feedbackToast} ${styles.toastError}`} style={{ marginTop: "1rem" }}>
+                    <AlertCircleIcon size={14} />
+                    <span>{passwordModalError}</span>
+                  </div>
+                )}
+
+                {passwordModalSuccess && (
+                  <div className={`${styles.feedbackToast} ${styles.toastSuccess}`} style={{ marginTop: "1rem" }}>
+                    <CheckIcon size={14} />
+                    <span>{passwordModalSuccess}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  className={styles.btnSecondary}
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  disabled={isUpdatingPassword}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.btnPrimary}
+                  disabled={isUpdatingPassword || !newPasswordInput || !confirmPasswordInput}
+                >
+                  {isUpdatingPassword ? (
+                    <>
+                      <SpinnerIcon size={14} />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>
+                      {currentUser?.providerData.some((p) => p.providerId === "password")
+                        ? "Update Password"
+                        : "Set Password"}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Phone Verification & SMS OTP Modal */}
+      {isPhoneModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => !isSendingOtp && !isVerifyingOtp && setIsPhoneModalOpen(false)}>
+          <div className={styles.modalDialog} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div style={{ flex: 1 }}>
+                <h3 className={styles.modalTitle}>Verify Mobile Number</h3>
+                <p className={styles.modalSubtitle}>
+                  {phoneStep === "input"
+                    ? "Enter your mobile phone number to receive a 6-digit verification code via SMS."
+                    : `Enter the 6-digit verification code dispatched to ${phoneModalCountry.dialCode} ${phoneModalNational}.`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSendingOtp && !isVerifyingOtp && setIsPhoneModalOpen(false)}
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                aria-label="Close dialog"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+
+            {phoneStep === "input" ? (
+              <form onSubmit={handleSendPhoneOtp}>
+                <div className={styles.modalBody}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Mobile Number with Country Code</label>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <select
+                        className={styles.input}
+                        style={{ width: "130px", flexShrink: 0 }}
+                        value={phoneModalCountry.code}
+                        onChange={(e) => {
+                          const matched = COUNTRIES.find((c) => c.code === e.target.value);
+                          if (matched) setPhoneModalCountry(matched);
+                        }}
+                      >
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.dialCode} ({c.name})
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        className={styles.input}
+                        placeholder="Mobile phone number"
+                        value={phoneModalNational}
+                        onChange={(e) => setPhoneModalNational(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                    <span className={styles.formHint}>Standard carrier SMS rates may apply.</span>
+                  </div>
+
+                  {phoneModalError && (
+                    <div className={`${styles.feedbackToast} ${styles.toastError}`} style={{ marginTop: "1rem" }}>
+                      <AlertCircleIcon size={14} />
+                      <span>{phoneModalError}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.modalFooter}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={() => setIsPhoneModalOpen(false)}
+                    disabled={isSendingOtp}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.btnPrimary}
+                    disabled={isSendingOtp || !phoneModalNational.trim()}
+                  >
+                    {isSendingOtp ? (
+                      <>
+                        <SpinnerIcon size={14} />
+                        <span>Sending SMS...</span>
+                      </>
+                    ) : (
+                      <span>Send Verification Code</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyPhoneOtp}>
+                <div className={styles.modalBody}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>6-Digit Verification Code</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      className={styles.input}
+                      placeholder="123456"
+                      value={phoneOtpCode}
+                      onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, ""))}
+                      style={{ fontSize: "1.25rem", letterSpacing: "0.25em", textAlign: "center", fontWeight: 700 }}
+                      required
+                      autoFocus
+                    />
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.5rem" }}>
+                      <span className={styles.formHint}>Check your phone's SMS inbox.</span>
+                      <button
+                        type="button"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--brand-accent)",
+                          fontSize: "0.75rem",
+                          cursor: "pointer",
+                          fontWeight: 500,
+                        }}
+                        onClick={() => setPhoneStep("input")}
+                      >
+                        Change Number
+                      </button>
+                    </div>
+                  </div>
+
+                  {phoneModalError && (
+                    <div className={`${styles.feedbackToast} ${styles.toastError}`} style={{ marginTop: "1rem" }}>
+                      <AlertCircleIcon size={14} />
+                      <span>{phoneModalError}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.modalFooter}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={() => setPhoneStep("input")}
+                    disabled={isVerifyingOtp}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.btnPrimary}
+                    disabled={isVerifyingOtp || phoneOtpCode.length < 6}
+                  >
+                    {isVerifyingOtp ? (
+                      <>
+                        <SpinnerIcon size={14} />
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <span>Verify &amp; Link Phone</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Log Out Other Devices Confirmation Modal */}
+      {isLogoutOthersModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => !isLoggingOutOthers && setIsLogoutOthersModalOpen(false)}>
+          <div className={styles.modalDialog} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div style={{ color: "#f59e0b", background: "rgba(245, 158, 11, 0.12)", width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <ShieldAlertIcon size={22} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 className={styles.modalTitle}>Log Out Other Devices?</h3>
+                <p className={styles.modalSubtitle}>
+                  This will immediately terminate all active sessions across other browsers, laptops, and mobile devices.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isLoggingOutOthers && setIsLogoutOthersModalOpen(false)}
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                aria-label="Close dialog"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <p style={{ margin: "0 0 0.5rem 0" }}>
+                Your current browser session will remain authenticated. Other sessions will receive an instant revocation command and be forced back to the sign-in screen.
+              </p>
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setIsLogoutOthersModalOpen(false)}
+                disabled={isLoggingOutOthers}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.btnWarningOutline}
+                style={{ width: "auto" }}
+                onClick={handleConfirmLogoutOtherDevices}
+                disabled={isLoggingOutOthers}
+              >
+                {isLoggingOutOthers ? (
+                  <>
+                    <SpinnerIcon size={14} />
+                    <span>Revoking Sessions...</span>
+                  </>
+                ) : (
+                  <span>Confirm Log Out Other Devices</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Log Out All Devices Confirmation Modal */}
+      {isLogoutAllModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => !isLoggingOutAll && setIsLogoutAllModalOpen(false)}>
+          <div className={styles.modalDialog} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalIconDanger}>
+                <AlertCircleIcon size={22} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 className={styles.modalTitle}>Log Out All Devices?</h3>
+                <p className={styles.modalSubtitle}>
+                  This will revoke every application session, invalidate credentials, and sign you out of this browser immediately.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isLoggingOutAll && setIsLogoutAllModalOpen(false)}
+                style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}
+                aria-label="Close dialog"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <p style={{ margin: "0 0 0.5rem 0" }}>
+                <strong>Warning:</strong> You will be immediately redirected to the sign-in page. All connected devices, agents, and desktop tabs will lose authenticated access.
+              </p>
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setIsLogoutAllModalOpen(false)}
+                disabled={isLoggingOutAll}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.btnDanger}
+                onClick={handleConfirmLogoutAllDevices}
+                disabled={isLoggingOutAll}
+              >
+                {isLoggingOutAll ? (
+                  <>
+                    <SpinnerIcon size={14} />
+                    <span>Logging out...</span>
+                  </>
+                ) : (
+                  <span>Confirm Log Out All Devices</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal (Danger Zone 3-Second Unlock) */}
       {isDeleteModalOpen && (
