@@ -19,7 +19,6 @@ import {
   LogoutIcon,
   CheckIcon,
   ShieldCheckIcon,
-  LockIcon,
   UserIcon,
   PhoneIcon,
   PlusIcon,
@@ -829,18 +828,14 @@ interface NavItem {
                         <h2 className={styles.settingsCardTitle}>General</h2>
                       </div>
 
-                      {/* Locked Identity Fields: User Name & User Email Address (CANNOT CHANGE) */}
+                      {/* Non-editable Identity Fields: User Name & User Email Address */}
                       <div className={styles.settingsFormRow}>
-                        {/* 1. User Name (LOCKED / CANNOT CHANGE) */}
+                        {/* 1. User Name */}
                         <div className={styles.settingsFormGroup}>
                           <div className={styles.settingsLabelRow}>
                             <label className={styles.settingsLabel} htmlFor="settings-user-name">
                               User Name
                             </label>
-                            <span className={styles.readOnlyBadge}>
-                              <LockIcon size={10} />
-                              <span>Locked</span>
-                            </span>
                           </div>
                           <div className={styles.lockedInputWrapper}>
                             <input
@@ -849,16 +844,16 @@ interface NavItem {
                               className={styles.lockedInput}
                               value={activeUserName}
                               readOnly
-                              disabled
-                              title="User Name is locked and cannot be edited"
+                              tabIndex={-1}
+                              aria-label="User Name (cannot be changed)"
                             />
-                            <div className={styles.lockIconAdornment}>
-                              <LockIcon size={14} />
+                            <div className={styles.fieldTooltip} role="tooltip">
+                              You cannot change the name
                             </div>
                           </div>
                         </div>
 
-                        {/* 2. User Email Address (LOCKED / CANNOT CHANGE) */}
+                        {/* 2. User Email Address */}
                         <div className={styles.settingsFormGroup}>
                           <div className={styles.settingsLabelRow}>
                             <label className={styles.settingsLabel} htmlFor="settings-user-email">
@@ -876,11 +871,11 @@ interface NavItem {
                               className={styles.lockedInput}
                               value={activeUserEmail}
                               readOnly
-                              disabled
-                              title="User Email Address is locked and cannot be edited"
+                              tabIndex={-1}
+                              aria-label="Email Address (cannot be changed)"
                             />
-                            <div className={styles.lockIconAdornment}>
-                              <LockIcon size={14} />
+                            <div className={styles.fieldTooltip} role="tooltip">
+                              You cannot change the email
                             </div>
                           </div>
                         </div>

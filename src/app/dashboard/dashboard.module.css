@@ -1159,13 +1159,14 @@
   display: flex;
   align-items: center;
   width: 100%;
+  cursor: not-allowed;
 }
 
 .lockedInput {
   background-color: rgba(11, 15, 25, 0.4);
   border: 1px solid var(--input-border);
   border-radius: 9px;
-  padding: 0.45rem 2rem 0.45rem 0.75rem;
+  padding: 0.45rem 0.85rem;
   color: var(--text-secondary);
   font-size: 0.8125rem;
   width: 100%;
@@ -1179,13 +1180,59 @@
   background-color: rgba(241, 245, 249, 0.7);
 }
 
-.lockIconAdornment {
+/* Floating Hover Tooltip for Non-editable Fields */
+.fieldTooltip {
   position: absolute;
-  right: 0.65rem;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background-color: #0b0f19;
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
   pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.18s ease;
+  z-index: 60;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.fieldTooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #0b0f19 transparent transparent transparent;
+}
+
+:global([data-theme="light"]) .fieldTooltip,
+:global(html.light) .fieldTooltip {
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+:global([data-theme="light"]) .fieldTooltip::after,
+:global(html.light) .fieldTooltip::after {
+  border-color: #ffffff transparent transparent transparent;
+}
+
+.lockedInputWrapper:hover .fieldTooltip,
+.lockedInputWrapper:focus-within .fieldTooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* =========================================================
