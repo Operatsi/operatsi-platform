@@ -242,22 +242,34 @@ export const AlertCircleIcon: React.FC<IconProps> = ({ size = 18, ...props }) =>
   </svg>
 );
 
-export const TrashIcon: React.FC<IconProps> = ({ size = 18, ...props }) => (
+export const TrashIcon: React.FC<IconProps> = ({ size = 18, className = "", style, ...props }) => (
   <svg
+    xmlns="http://www.w3.org/2000/svg"
     width={size}
     height={size}
     viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    fill="currentColor"
+    className={className}
+    style={{ ...style, fill: "var(--fillg, currentColor)" }}
     {...props}
   >
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    <line x1="10" y1="11" x2="10" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
+    <g clipPath="url(#clip0_4418_8617)">
+      <path
+        d="M21.0699 5.23C19.4599 5.07 17.8499 4.95 16.2299 4.86V4.85L16.0099 3.55C15.8599 2.63 15.6399 1.25 13.2999 1.25H10.6799C8.34991 1.25 8.12991 2.57 7.96991 3.54L7.75991 4.82C6.82991 4.88 5.89991 4.94 4.96991 5.03L2.92991 5.23C2.50991 5.27 2.20991 5.64 2.24991 6.05C2.28991 6.46 2.64991 6.76 3.06991 6.72L5.10991 6.52C10.3499 6 15.6299 6.2 20.9299 6.73C20.9599 6.73 20.9799 6.73 21.0099 6.73C21.3899 6.73 21.7199 6.44 21.7599 6.05C21.7899 5.64 21.4899 5.27 21.0699 5.23Z"
+        fill="currentColor"
+        style={{ fill: "var(--fillg, currentColor)" }}
+      />
+      <path
+        d="M19.23 8.14C18.99 7.89 18.66 7.75 18.32 7.75H5.67999C5.33999 7.75 4.99999 7.89 4.76999 8.14C4.53999 8.39 4.40999 8.73 4.42999 9.08L5.04999 19.34C5.15999 20.86 5.29999 22.76 8.78999 22.76H15.21C18.7 22.76 18.84 20.87 18.95 19.34L19.57 9.09C19.59 8.73 19.46 8.39 19.23 8.14ZM13.66 17.75H10.33C9.91999 17.75 9.57999 17.41 9.57999 17C9.57999 16.59 9.91999 16.25 10.33 16.25H13.66C14.07 16.25 14.41 16.59 14.41 17C14.41 17.41 14.07 17.75 13.66 17.75ZM14.5 13.75H9.49999C9.08999 13.75 8.74999 13.41 8.74999 13C8.74999 12.59 9.08999 12.25 9.49999 12.25H14.5C14.91 12.25 15.25 12.59 15.25 13C15.25 13.41 14.91 13.75 14.5 13.75Z"
+        fill="currentColor"
+        style={{ fill: "var(--fillg, currentColor)" }}
+      />
+    </g>
+    <defs>
+      <clipPath id="clip0_4418_8617">
+        <rect width="24" height="24" fill="white" />
+      </clipPath>
+    </defs>
   </svg>
 );
 
@@ -295,20 +307,39 @@ export const ShieldCheckIcon: React.FC<IconProps> = ({ size = 16, ...props }) =>
   </svg>
 );
 
-export const LockIcon: React.FC<IconProps> = ({ size = 14, ...props }) => (
+export const LockIcon: React.FC<IconProps> = ({ size = 14, className = "", style, ...props }) => (
   <svg
+    xmlns="http://www.w3.org/2000/svg"
     width={size}
     height={size}
     viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    fill="currentColor"
+    className={className}
+    style={{ ...style, fill: "var(--fillg, currentColor)" }}
     {...props}
   >
-    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    <g clipPath="url(#clip0_4418_8318)">
+      <path
+        d="M12 7.75C10.11 7.75 9.75 8.54 9.75 10V10.62H14.25V10C14.25 8.54 13.89 7.75 12 7.75Z"
+        fill="currentColor"
+        style={{ fill: "var(--fillg, currentColor)" }}
+      />
+      <path
+        d="M11.9999 15.1004C12.6074 15.1004 13.0999 14.6079 13.0999 14.0004C13.0999 13.3929 12.6074 12.9004 11.9999 12.9004C11.3924 12.9004 10.8999 13.3929 10.8999 14.0004C10.8999 14.6079 11.3924 15.1004 11.9999 15.1004Z"
+        fill="currentColor"
+        style={{ fill: "var(--fillg, currentColor)" }}
+      />
+      <path
+        d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM17.38 14.5C17.38 16.7 16.7 17.38 14.5 17.38H9.5C7.3 17.38 6.62 16.7 6.62 14.5V13.5C6.62 11.79 7.03 11 8.25 10.73V10C8.25 9.07 8.25 6.25 12 6.25C15.75 6.25 15.75 9.07 15.75 10V10.73C16.97 11 17.38 11.79 17.38 13.5V14.5Z"
+        fill="currentColor"
+        style={{ fill: "var(--fillg, currentColor)" }}
+      />
+    </g>
+    <defs>
+      <clipPath id="clip0_4418_8318">
+        <rect width="24" height="24" fill="white" />
+      </clipPath>
+    </defs>
   </svg>
 );
 
@@ -446,11 +477,41 @@ export const MenuToggleIcon: React.FC<IconProps> = ({ size = 20, ...props }) => 
   </svg>
 );
 
-export const LogoutIcon: React.FC<IconProps> = ({ size = 18, ...props }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" x2="9" y1="12" y2="12" />
+export const LogoutIcon: React.FC<IconProps> = ({ size = 18, className = "", style, ...props }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    className={className}
+    style={style}
+    {...props}
+  >
+    <path
+      d="M17.4399 14.62L19.9999 12.06L17.4399 9.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M9.75977 12.0596H19.9298"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M11.7598 20C7.33977 20 3.75977 17 3.75977 12C3.75977 7 7.33977 4 11.7598 4"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 

@@ -290,29 +290,45 @@ export default function DashboardPage() {
   const executeFullFirebaseDeletion = async () => {
     setIsDeleting(true);
     try {
-      const uid = currentUser?.uid;
+      const activeUser = currentUser || auth.currentUser;
+      const uid = activeUser?.uid;
+
       if (uid) {
         // 1. Delete user profile & settings document from Firestore
         try {
           await deleteDoc(doc(db, "users", uid));
+          console.log("[Firebase Deletion] Deleted users doc for UID:", uid);
         } catch (e) {
-          console.warn("Could not delete user doc from Firestore:", e);
+          console.error("Could not delete user doc from Firestore:", e);
         }
 
         // 2. Delete user activities, workflows, logs
         try {
           await deleteDoc(doc(db, "activities", uid));
-        } catch {}
+        } catch (e) {
+          console.warn("Could not delete activities doc:", e);
+        }
         try {
           await deleteDoc(doc(db, "user_activities", uid));
-        } catch {}
+        } catch (e) {
+          console.warn("Could not delete user_activities doc:", e);
+        }
       }
 
-      // 3. Delete user authentication profile from Firebase Auth
-      if (currentUser) {
+      // 3. Clear cached client data
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("operatsi_theme");
+          sessionStorage.clear();
+        }
+      } catch {}
+
+      // 4. Delete user authentication profile from Firebase Auth
+      if (activeUser) {
         try {
-          await deleteUser(currentUser);
-        } catch (authErr) {
+          await deleteUser(activeUser);
+          console.log("[Firebase Deletion] Successfully deleted Firebase Auth user profile");
+        } catch (authErr: unknown) {
           console.warn("deleteUser required recent login, signing out user:", authErr);
           await signOut(auth);
         }
@@ -327,6 +343,7 @@ export default function DashboardPage() {
     } finally {
       setIsDeleting(false);
       setIsScheduledDeletionActive(false);
+      setIsDeleteModalOpen(false);
       router.push("/");
     }
   };
@@ -1159,7 +1176,7 @@ interface NavItem {
                 <li>All profile records ({activeUserName}, {activeUserEmail})</li>
                 <li>Saved mobile numbers and security preferences</li>
                 <li>Workspace access tokens, credentials, and configurations</li>
-                <li>All user activity logs and automated workflows in Firebase</li>
+                <li>All user activity logs and automated workflows in OperatSI</li>
               </ul>
             </div>
 
@@ -1215,7 +1232,7 @@ interface NavItem {
             onClick={(e) => e.stopPropagation()}
           >
             <div className={styles.countdownBadgeCircle}>
-              {deletionCountdown}
+              {isDeleting ? <SpinnerIcon size={32} /> : deletionCountdown}
             </div>
 
             <div className={styles.modalHeaderContent} style={{ textAlign: "center" }}>
@@ -1224,8 +1241,8 @@ interface NavItem {
               </h3>
               <p className={styles.countdownSubtitle}>
                 {isDeleting
-                  ? "Erasing all user data, activities, and authentication profile from Firebase..."
-                  : `All user activities, database records, and authentication data will be permanently wiped from Firebase in ${deletionCountdown} seconds.`}
+                  ? "Erasing all user data, Firestore documents, and authentication profile from Firebase..."
+                  : `All user profile documents, activities, and authentication credentials will be wiped from Firebase in ${deletionCountdown} seconds.`}
               </p>
             </div>
 
@@ -1236,15 +1253,36 @@ interface NavItem {
               />
             </div>
 
-            {!isDeleting && (
-              <button
-                type="button"
-                className={styles.abortDeletionBtn}
-                onClick={handleAbortDeletion}
-              >
-                <CloseIcon size={18} />
-                <span>Abort Deletion (Keep My Account)</span>
-              </button>
+            {!isDeleting ? (
+              <div className={styles.countdownActionsRow}>
+                <button
+                  type="button"
+                  className={styles.deleteNowBtn}
+                  onClick={() => {
+                    if (countdownIntervalRef.current) {
+                      clearInterval(countdownIntervalRef.current);
+                      countdownIntervalRef.current = null;
+                    }
+                    executeFullFirebaseDeletion();
+                  }}
+                >
+                  <TrashIcon size={16} />
+                  <span>Delete Immediately</span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.abortDeletionBtn}
+                  onClick={handleAbortDeletion}
+                >
+                  <CloseIcon size={18} />
+                  <span>Abort Deletion (Keep My Account)</span>
+                </button>
+              </div>
+            ) : (
+              <div style={{ color: "#94a3b8", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <SpinnerIcon size={16} />
+                <span>Wiping Firebase database records and signing out...</span>
+              </div>
             )}
           </div>
         </div>

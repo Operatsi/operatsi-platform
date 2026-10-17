@@ -13,7 +13,7 @@ service cloud.firestore {
     }
 
     // Users collection rules:
-    // Allows each authenticated user to read, create, and update their own user record
+    // Allows each authenticated user to read, create, update, and delete their own user record
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId)
@@ -21,7 +21,29 @@ service cloud.firestore {
                     && request.resource.data.email is string;
       allow update: if isOwner(userId)
                     && request.resource.data.uid == userId;
-      allow delete: if false;
+      allow delete: if isOwner(userId);
+    }
+
+    // Allows users to delete/manage any nested documents or subcollections under their user profile
+    match /users/{userId}/{allPaths=**} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    // Activities & user activity logs linked to user
+    match /activities/{userId} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    match /activities/{userId}/{allPaths=**} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    match /user_activities/{userId} {
+      allow read, write, delete: if isOwner(userId);
+    }
+
+    match /user_activities/{userId}/{allPaths=**} {
+      allow read, write, delete: if isOwner(userId);
     }
 
     // Default catch-all rule: deny access to everything else
