@@ -1,9 +1,51 @@
 rules_version = '2';
 
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId} (matching request.auth.uid)
+// Fields:
+//   - uid: string (matches document userId)
+//   - email: string
+//   - name: string
+//   - displayName: string
+//   - authProvider: string
+//   - emailVerified: boolean
+//   - photoURL: string or null
+//   - jobTitle: string
+//   - language: string
+//   - preferredLanguage: string
+//   - timeZone: string
+//   - timezone: string
+//   - bio: string
+//   - phoneNumber: string
+//   - mobileNumber: string
+//   - phoneCountryCode: string
+//   - phoneDialCode: string
+//   - phoneNational: string
+//   - createdAt: timestamp
+//   - updatedAt: timestamp
+//   - verifiedAt: timestamp
+//
+// Subcollections under users:
+//   - /users/{userId}/{allPaths=**}: User-scoped nested documents
+//
+// Collection: activities
+// Document ID: {userId}
+// Subcollections: /activities/{userId}/{allPaths=**}
+//
+// Collection: user_activities
+// Document ID: {userId}
+// Subcollections: /user_activities/{userId}/{allPaths=**}
+//
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Core security helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -12,24 +54,25 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Users collection rules:
-    // Allows each authenticated user to read, create, update, and delete their own user record
+    // Validation helper: prevent UID manipulation during write operations
+    function isValidUserWrite(userId) {
+      return !('uid' in request.resource.data) || request.resource.data.uid == userId;
+    }
+
+    // Users collection rules: strictly enforce owner access for reads, writes, and profile deletion
     match /users/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
-                    && request.resource.data.uid == userId
-                    && request.resource.data.email is string;
-      allow update: if isOwner(userId)
-                    && request.resource.data.uid == userId;
+      allow create: if isOwner(userId) && isValidUserWrite(userId);
+      allow update: if isOwner(userId) && isValidUserWrite(userId);
       allow delete: if isOwner(userId);
     }
 
-    // Allows users to delete/manage any nested documents or subcollections under their user profile
+    // User-scoped subcollections
     match /users/{userId}/{allPaths=**} {
       allow read, write, delete: if isOwner(userId);
     }
 
-    // Activities & user activity logs linked to user
+    // User activities & audit logging collections
     match /activities/{userId} {
       allow read, write, delete: if isOwner(userId);
     }
@@ -46,7 +89,7 @@ service cloud.firestore {
       allow read, write, delete: if isOwner(userId);
     }
 
-    // Default catch-all rule: deny access to everything else
+    // Catch-all rule: strictly deny access to any unspecified collection
     match /{document=**} {
       allow read, write: if false;
     }

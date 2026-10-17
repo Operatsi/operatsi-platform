@@ -440,6 +440,7 @@ export default function SettingsPage() {
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
+          uid: currentUser.uid,
           displayName: finalDisplayName,
           name: finalDisplayName,
           jobTitle,
