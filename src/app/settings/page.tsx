@@ -40,7 +40,7 @@ import {
   AppleIcon,
 } from "@/components/Icons";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged, User, deleteUser, signOut } from "firebase/auth";
+import { onAuthStateChanged, User, deleteUser, signOut, updateProfile } from "firebase/auth";
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { CustomSelect, SelectOption } from "@/components/CustomSelect";
 import styles from "./settings.module.css";
@@ -379,9 +379,14 @@ export default function SettingsPage() {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
-            if (data?.name) {
-              setUserName(data.name);
-              setDisplayName(data.displayName || data.name);
+            const storedName = data?.displayName || data?.name || user.displayName || "";
+            if (storedName) {
+              setUserName(storedName);
+              setDisplayName(storedName);
+            } else {
+              const fallback = formatDisplayName(user);
+              setDisplayName(fallback);
+              setUserName(fallback);
             }
             if (data?.jobTitle) setJobTitle(data.jobTitle);
             if (data?.language) setLanguage(data.language);
@@ -396,6 +401,10 @@ export default function SettingsPage() {
               const matched = COUNTRIES.find((c) => c.code === data.phoneCountryCode);
               if (matched) setSelectedCountry(matched);
             }
+          } else {
+            const fallback = user.displayName || formatDisplayName(user);
+            setUserName(fallback);
+            setDisplayName(fallback);
           }
         } catch {
           // Keep current state
@@ -408,25 +417,39 @@ export default function SettingsPage() {
   const activeUserName = formatDisplayName(currentUser, userName);
   const activeUserEmail = currentUser?.email || "krishanth.b.2008@gmail.com";
 
-  // Save Profile Changes
+  // Save Profile Changes to Firebase Firestore
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
     setIsSavingProfile(true);
     setProfileFeedback(null);
     try {
+      const finalDisplayName = (displayName && displayName.trim()) || activeUserName;
       const fullPhoneNumber = phoneNational.trim()
         ? `${selectedCountry.dialCode} ${phoneNational.trim()}`
         : "";
+
+      // 1. Update Firebase Auth user profile
+      try {
+        await updateProfile(currentUser, { displayName: finalDisplayName });
+      } catch (authErr) {
+        console.warn("Auth updateProfile notice:", authErr);
+      }
+
+      // 2. Persist to Firestore /users/{uid} document
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
-          displayName: displayName || activeUserName,
+          displayName: finalDisplayName,
+          name: finalDisplayName,
           jobTitle,
           language,
+          preferredLanguage: language,
           timeZone,
+          timezone: timeZone,
           bio,
           phoneNumber: fullPhoneNumber,
+          mobileNumber: fullPhoneNumber,
           phoneCountryCode: selectedCountry.code,
           phoneDialCode: selectedCountry.dialCode,
           phoneNational: phoneNational.trim(),
@@ -434,10 +457,14 @@ export default function SettingsPage() {
         },
         { merge: true }
       );
-      setProfileFeedback("Profile changes saved successfully.");
+
+      setDisplayName(finalDisplayName);
+      setUserName(finalDisplayName);
+      setProfileFeedback("Profile, mobile number, and localization saved to Firestore.");
       setTimeout(() => setProfileFeedback(null), 3500);
-    } catch {
-      setProfileFeedback("Failed to save changes. Please try again.");
+    } catch (err) {
+      console.error("Firestore save error:", err);
+      setProfileFeedback("Failed to save changes to Firestore. Please try again.");
     } finally {
       setIsSavingProfile(false);
     }
@@ -690,7 +717,7 @@ export default function SettingsPage() {
                         <input
                           type="text"
                           className={styles.input}
-                          value={displayName || activeUserName}
+                          value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           placeholder="How your name appears to colleagues"
                         />
