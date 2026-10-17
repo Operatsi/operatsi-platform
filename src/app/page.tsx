@@ -136,53 +136,98 @@ export default function LoginPage() {
   // Active resolved User Name for all cards and dashboards
   const activeUserName = formatDisplayName(currentUser, userName || name);
 
+  // Track whether an OTP was already dispatched for the current auth lifecycle (prevents double OTP)
+  const hasSentOtpRef = useRef<boolean>(false);
+
+  // Checks if the user is authenticated via OAuth (Google or Apple)
+  const isOAuthUser = (user: User | null): boolean => {
+    if (!user) return false;
+    return user.providerData.some(
+      (p) => p.providerId === "google.com" || p.providerId === "apple.com"
+    );
+  };
+
+  // Dispatches 5-digit OTP code to email EXACTLY ONCE
+  // Strictly blocked for Google and Apple OAuth users
+  const dispatchSingleOtp = async (targetEmail: string, targetName: string) => {
+    if (!targetEmail) return;
+
+    // RULE: If user logged in with Google or Apple, DO NOT send OTP to user's email
+    const activeUser = auth.currentUser || currentUser;
+    if (isOAuthUser(activeUser)) {
+      return;
+    }
+
+    // RULE: Prevent double OTP dispatch in the same session
+    if (hasSentOtpRef.current) {
+      return;
+    }
+    hasSentOtpRef.current = true;
+
+    const code = generate5DigitOtp();
+    setGeneratedOtp(code);
+    setOtpValues(["", "", "", "", ""]);
+    setResendCountdown(30);
+
+    try {
+      await fetch("/api/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail.trim().toLowerCase(),
+          otp: code,
+          name: targetName,
+        }),
+      });
+    } catch (apiErr) {
+      console.warn("send-otp api call:", apiErr);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
+        // If user logged in with Google or Apple:
+        // NEVER send OTP to their email, immediately mark as verified!
+        if (isOAuthUser(user)) {
+          hasSentOtpRef.current = true;
+          setIsUserVerified(true);
+          if (user.displayName) setUserName(user.displayName);
+          return;
+        }
+
+        // Email and password user
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
-            setIsUserVerified(Boolean(data?.emailVerified));
+            if (data?.authProvider === "google.com" || data?.authProvider === "apple.com") {
+              hasSentOtpRef.current = true;
+              setIsUserVerified(true);
+              return;
+            }
+
+            const verified = Boolean(data?.emailVerified);
+            setIsUserVerified(verified);
             if (data?.name) {
               setUserName(data.name);
             }
           } else {
-            setIsUserVerified(user.emailVerified);
+            setIsUserVerified(Boolean(user.emailVerified));
           }
         } catch {
-          setIsUserVerified(user.emailVerified);
+          setIsUserVerified(Boolean(user.emailVerified));
         }
       } else {
         setIsUserVerified(false);
         setUserName("");
+        hasSentOtpRef.current = false;
+        setGeneratedOtp("");
       }
     });
     return () => unsubscribe();
   }, []);
-
-  // Auto-initialize 5-digit OTP and send to user's email when an unverified user session is active
-  useEffect(() => {
-    if (currentUser && !isUserVerified && !generatedOtp) {
-      const code = generate5DigitOtp();
-      setGeneratedOtp(code);
-      setOtpValues(["", "", "", "", ""]);
-      setResendCountdown(30);
-
-      if (currentUser.email) {
-        fetch("/api/send-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: currentUser.email,
-            otp: code,
-            name: activeUserName,
-          }),
-        }).catch((err) => console.warn("Auto-dispatch OTP email error:", err));
-      }
-    }
-  }, [currentUser, isUserVerified, generatedOtp, activeUserName]);
 
   // Format Firebase Auth errors into friendly messages
   const formatAuthError = (err: unknown): string => {
@@ -212,7 +257,7 @@ export default function LoginPage() {
     return "An unexpected error occurred. Please try again.";
   };
 
-  // Handle Sign In submission
+  // Handle Sign In submission with email and password
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -225,8 +270,25 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setSuccessMessage("Signed in successfully! Welcome to OperatSI.");
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Check verification in Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const data = userDoc.exists() ? userDoc.data() : null;
+      const verified = Boolean(data?.emailVerified ?? user.emailVerified);
+
+      if (!verified) {
+        setIsUserVerified(false);
+        setAuthMode("verify_otp");
+        // Dispatch OTP at ONE TIME (never double)
+        hasSentOtpRef.current = false;
+        await dispatchSingleOtp(email.trim(), data?.name || formatDisplayName(user));
+        setSuccessMessage(`Welcome back! A 5-digit verification code has been sent to ${email}.`);
+      } else {
+        setIsUserVerified(true);
+        setSuccessMessage("Signed in successfully! Welcome to OperatSI.");
+      }
     } catch (err) {
       setErrorMessage(formatAuthError(err));
     } finally {
@@ -234,7 +296,7 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Sign Up submission - creates user in Auth & Firestore (unverified), then initiates 4-character OTP
+  // Handle Sign Up submission with email and password
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -286,30 +348,11 @@ export default function LoginPage() {
       );
 
       setIsUserVerified(false);
-
-      // 3. Generate 5-digit numeric OTP and dispatch to user's email
-      const otp = generate5DigitOtp();
-      setGeneratedOtp(otp);
-      setOtpValues(["", "", "", "", ""]);
-      setResendCountdown(30);
       setAuthMode("verify_otp");
 
-      // Send 5-digit security code email
-      try {
-        await fetch("/api/send-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim(), otp, name: resolvedSignUpName }),
-        });
-      } catch (fetchErr) {
-        console.warn("send-otp api call:", fetchErr);
-      }
-
-      try {
-        await sendEmailVerification(newUser);
-      } catch (mailErr) {
-        console.warn("sendEmailVerification notice:", mailErr);
-      }
+      // 3. Dispatch 5-digit numeric OTP to user's email at ONE TIME (no double OTP)
+      hasSentOtpRef.current = false;
+      await dispatchSingleOtp(email.trim(), resolvedSignUpName);
 
       setSuccessMessage(`Account created! A 5-digit verification code has been sent to ${email}. Check your email inbox.`);
     } catch (err) {
@@ -319,7 +362,7 @@ export default function LoginPage() {
     }
   };
 
-  // Handle sending verification or password recovery email
+  // Handle sending verification or password recovery email (Resend)
   const handleSendVerificationEmail = async (sendPasswordToo = false) => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -333,12 +376,11 @@ export default function LoginPage() {
         return;
       }
 
-      if (targetUser) {
-        try {
-          await sendEmailVerification(targetUser);
-        } catch (verErr) {
-          console.warn("sendEmailVerification notice:", verErr);
-        }
+      // If user logged in with Google or Apple, DO NOT send OTP
+      if (isOAuthUser(targetUser || currentUser)) {
+        setIsUserVerified(true);
+        setSuccessMessage("Google and Apple accounts are verified automatically.");
+        return;
       }
 
       if (sendPasswordToo) {
@@ -349,25 +391,9 @@ export default function LoginPage() {
         }
       }
 
-      const freshOtp = generate5DigitOtp();
-      setGeneratedOtp(freshOtp);
-      setOtpValues(["", "", "", "", ""]);
-      setResendCountdown(30);
-
-      // Send 5-digit OTP to user's email
-      try {
-        await fetch("/api/send-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: targetEmail.trim(),
-            otp: freshOtp,
-            name: activeUserName,
-          }),
-        });
-      } catch (apiErr) {
-        console.warn("send-otp api call:", apiErr);
-      }
+      // Dispatch single fresh 5-digit OTP
+      hasSentOtpRef.current = false;
+      await dispatchSingleOtp(targetEmail, activeUserName);
 
       setSuccessMessage(
         sendPasswordToo
@@ -486,11 +512,12 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Google Sign In - saves user data to Firestore with emailVerified: true
+  // Handle Google Sign In - saves user data to Firestore with emailVerified: true (NEVER send OTP)
   const handleGoogleSignIn = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsLoading(true);
+    hasSentOtpRef.current = true;
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
@@ -513,6 +540,7 @@ export default function LoginPage() {
         { merge: true }
       );
 
+      hasSentOtpRef.current = true;
       setIsUserVerified(true);
       setSuccessMessage("Signed in with Google successfully!");
     } catch (err) {
@@ -522,11 +550,12 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Apple Sign In - saves user data to Firestore with emailVerified: true
+  // Handle Apple Sign In - saves user data to Firestore with emailVerified: true (NEVER send OTP)
   const handleAppleSignIn = async () => {
     setErrorMessage(null);
     setSuccessMessage(null);
     setIsLoading(true);
+    hasSentOtpRef.current = true;
     try {
       const provider = new OAuthProvider("apple.com");
       const result = await signInWithPopup(auth, provider);
@@ -548,6 +577,7 @@ export default function LoginPage() {
         { merge: true }
       );
 
+      hasSentOtpRef.current = true;
       setIsUserVerified(true);
       setSuccessMessage("Signed in with Apple successfully!");
     } catch (err) {
