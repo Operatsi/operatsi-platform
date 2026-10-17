@@ -226,11 +226,6 @@ const TIMEZONE_OPTIONS: SelectOption[] = [
   { value: "Asia/Singapore", label: "Singapore (SGT)" },
 ];
 
-const DENSITY_OPTIONS: SelectOption[] = [
-  { value: "comfortable", label: "Comfortable", badge: "Default", description: "Generous whitespace for executive readability" },
-  { value: "compact", label: "Compact (High Density)", badge: "Pro", description: "Optimized for dense data tables & analyst workflows" },
-];
-
 const INDUSTRY_OPTIONS: SelectOption[] = [
   { value: "saas", label: "Enterprise SaaS & Technology", badge: "Core", description: "Software platforms, cloud services & AI" },
   { value: "fintech", label: "Financial Services & Banking", description: "Capital markets, banking, fintech & payments" },
@@ -2551,7 +2546,7 @@ export default function SettingsPage() {
                       <span>Appearance</span>
                     </h1>
                     <p className={styles.pageDescription}>
-                      Customize the theme mode, visual density, reduced motion, and interface display preferences.
+                      Customize the theme mode and visual display preferences across OperatSI surfaces.
                     </p>
                   </div>
                 </header>
@@ -2605,85 +2600,6 @@ export default function SettingsPage() {
                         </button>
                       );
                     })}
-                  </div>
-                </div>
-
-                <div className={styles.sectionCard}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <h2 className={styles.sectionHeaderTitle}>Interface Preferences</h2>
-                      <p className={styles.sectionHeaderSubtitle}>Density, animation parameters, and navigation behavior.</p>
-                    </div>
-                  </div>
-
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Interface Density</h3>
-                      <p className={styles.settingDesc}>Compact density increases information per screen for power analysts.</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                      <CustomSelect
-                        value={density}
-                        onChange={(val) => setDensity(val as "comfortable" | "compact")}
-                        options={DENSITY_OPTIONS}
-                        align="right"
-                        style={{ minWidth: "220px" }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Reduced Motion</h3>
-                      <p className={styles.settingDesc}>Minimize animations and transitions across application drawers and cards.</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={reducedMotion}
-                        className={`${styles.switch} ${reducedMotion ? styles.switchChecked : ""}`}
-                        onClick={() => setReducedMotion((prev) => !prev)}
-                      >
-                        <span className={styles.switchThumb} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Auto-collapse Sidebar</h3>
-                      <p className={styles.settingDesc}>Automatically compress the global sidebar to icons when width is constrained.</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={autoCollapseSidebar}
-                        className={`${styles.switch} ${autoCollapseSidebar ? styles.switchChecked : ""}`}
-                        onClick={() => setAutoCollapseSidebar((prev) => !prev)}
-                      >
-                        <span className={styles.switchThumb} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={styles.settingRow}>
-                    <div className={styles.settingInfo}>
-                      <h3 className={styles.settingTitle}>Show Unread Badges</h3>
-                      <p className={styles.settingDesc}>Display real-time numerical unread badges on Inbox and Execution Center.</p>
-                    </div>
-                    <div className={styles.settingControl}>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={showUnreadBadges}
-                        className={`${styles.switch} ${showUnreadBadges ? styles.switchChecked : ""}`}
-                        onClick={() => setShowUnreadBadges((prev) => !prev)}
-                      >
-                        <span className={styles.switchThumb} />
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>
