@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { hashToken } from "@/lib/invitationEmail";
 import { WorkspaceInvitation } from "@/lib/workspaceMembers";
 import { DEFAULT_WORKSPACE_NAME } from "@/lib/serverWorkspaceAuth";
+import { isDatabaseConfigured, sqlQuery } from "@/lib/supabase/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +19,51 @@ export async function GET(req: NextRequest) {
 
     const tokenHash = hashToken(token);
 
-    // Look up token in global index
+    // 1. Check PostgreSQL first if configured
+    if (isDatabaseConfigured()) {
+      try {
+        const pgRes = await sqlQuery(
+          `SELECT i.*, w.name as workspace_name 
+           FROM public.workspace_invitations i
+           LEFT JOIN public.workspaces w ON i.workspace_id = w.id
+           WHERE i.token_hash = $1`,
+          [tokenHash]
+        );
+
+        if (pgRes && pgRes.rows.length > 0) {
+          const row = pgRes.rows[0];
+          if (row.status !== "pending") {
+            return NextResponse.json(
+              { valid: false, error: "This invitation is no longer active." },
+              { status: 410 }
+            );
+          }
+
+          const expiresMillis = new Date(row.expires_at).getTime();
+          if (expiresMillis < Date.now()) {
+            return NextResponse.json(
+              { valid: false, error: "This invitation link has expired." },
+              { status: 410 }
+            );
+          }
+
+          return NextResponse.json({
+            valid: true,
+            workspaceId: row.workspace_id,
+            workspaceName: row.workspace_name || DEFAULT_WORKSPACE_NAME,
+            invitedEmail: row.invited_email,
+            role: row.role_id,
+            inviterName: row.inviter_name,
+            message: row.message || null,
+            expiresAt: row.expires_at,
+          });
+        }
+      } catch (pgErr) {
+        console.warn("[API Workspace Invitations Validate] PostgreSQL validation check skipped:", pgErr);
+      }
+    }
+
+    // 2. Fallback to Firestore
     const tokenDoc = await adminDb
       .collection("workspace_invitations_by_token")
       .doc(tokenHash)
@@ -88,6 +133,9 @@ export async function GET(req: NextRequest) {
       expiresAt: inviteData.expiresAt,
     });
   } catch (err: any) {
+    if (err?.digest === "NEXT_PRERENDER_INTERRUPTED") {
+      throw err;
+    }
     console.error("[API Workspace Invitations Validate] Error:", err);
     return NextResponse.json(
       { valid: false, error: "Unable to validate invitation." },

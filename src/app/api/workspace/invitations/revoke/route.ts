@@ -7,6 +7,10 @@ import {
   DEFAULT_WORKSPACE_ID,
 } from "@/lib/serverWorkspaceAuth";
 import { WorkspaceInvitation } from "@/lib/workspaceMembers";
+import {
+  revokePostgresWorkspaceInvitation,
+  recordPostgresSecurityAudit,
+} from "@/lib/supabase/workspaceService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,14 +55,21 @@ export async function POST(req: NextRequest) {
         .catch(() => {});
     }
 
-    // 2. Mark status revoked
+    // 2. Mark status revoked in Firestore
     await invitationRef.update({
       status: "revoked",
       revokedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // 3. Record audit event
+    // Revoke invitation in PostgreSQL
+    try {
+      await revokePostgresWorkspaceInvitation(workspaceId, invitationId);
+    } catch (pgErr) {
+      console.warn("[API Workspace Invitations Revoke] PostgreSQL revocation error:", pgErr);
+    }
+
+    // 3. Record audit event in Firestore
     await recordWorkspaceAudit(workspaceId, {
       actorUserId: actor.uid,
       actorName: actor.displayName,
@@ -68,6 +79,24 @@ export async function POST(req: NextRequest) {
       previousValue: inviteData.status,
       newValue: "revoked",
     });
+
+    // Record audit event in PostgreSQL
+    try {
+      await recordPostgresSecurityAudit({
+        workspaceId,
+        actorUserId: actor.uid,
+        actorName: actor.displayName,
+        actorEmail: actor.email,
+        targetEmail: inviteData.invitedEmail,
+        action: "invitation_revoked",
+        previousValue: inviteData.status,
+        newValue: "revoked",
+        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+        userAgent: req.headers.get("user-agent"),
+      });
+    } catch (pgAuditErr) {
+      console.warn("[API Workspace Invitations Revoke] PostgreSQL audit error:", pgAuditErr);
+    }
 
     return NextResponse.json({
       success: true,

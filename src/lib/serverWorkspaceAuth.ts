@@ -8,6 +8,11 @@ import {
   WorkspaceMember,
   normalizeEmail,
 } from "@/lib/workspaceMembers";
+import { isDatabaseConfigured, sqlQuery } from "@/lib/supabase/db";
+import {
+  ensurePostgresWorkspace,
+  recordPostgresSecurityAudit,
+} from "@/lib/supabase/workspaceService";
 
 export interface AuthenticatedActor {
   uid: string;
@@ -59,7 +64,34 @@ export async function getWorkspaceActor(
 
   const workspaceId = requestedWorkspaceId || req.headers.get("x-workspace-id") || DEFAULT_WORKSPACE_ID;
 
-  // 1. Check if user is an existing member of this workspace
+  // 1. Check PostgreSQL first if configured
+  if (isDatabaseConfigured()) {
+    try {
+      const res = await sqlQuery(
+        `SELECT m.role_id, m.status, p.email, p.name, p.display_name
+         FROM public.workspace_members m
+         JOIN public.user_profiles p ON m.user_id = p.id
+         WHERE m.workspace_id = $1 AND m.user_id = $2
+         LIMIT 1;`,
+        [workspaceId, user.uid]
+      );
+
+      if (res && res.rows.length > 0) {
+        const row = res.rows[0];
+        return {
+          uid: user.uid,
+          email: row.email || user.email,
+          displayName: row.display_name || row.name || user.name || user.email.split("@")[0],
+          role: (row.role_id as WorkspaceRole) || "member",
+          workspaceId,
+        };
+      }
+    } catch (pgErr) {
+      console.warn("[WorkspaceAuth] PostgreSQL actor lookup notice:", pgErr);
+    }
+  }
+
+  // 2. Check if user is an existing member of this workspace in Firestore
   const memberDoc = await adminDb
     .collection("workspaces")
     .doc(workspaceId)
@@ -121,6 +153,26 @@ export async function getWorkspaceActor(
       },
       { merge: true }
     );
+
+    // Synchronize initial owner to PostgreSQL if configured
+    if (isDatabaseConfigured()) {
+      try {
+        await ensurePostgresWorkspace(workspaceId, {
+          uid: user.uid,
+          email: user.email,
+          name: initialName,
+        });
+
+        await sqlQuery(
+          `INSERT INTO public.workspace_members (workspace_id, user_id, role_id, status)
+           VALUES ($1, $2, 'owner', 'active')
+           ON CONFLICT (workspace_id, user_id) DO NOTHING;`,
+          [workspaceId, user.uid]
+        );
+      } catch (pgErr) {
+        console.warn("[WorkspaceAuth] PostgreSQL initial owner bootstrap notice:", pgErr);
+      }
+    }
 
     return {
       uid: user.uid,
@@ -195,6 +247,25 @@ export async function recordWorkspaceAudit(
       ...event,
       createdAt: FieldValue.serverTimestamp(),
     });
+
+    // Also persist audit log to PostgreSQL if configured
+    if (isDatabaseConfigured()) {
+      try {
+        await recordPostgresSecurityAudit({
+          workspaceId,
+          actorUserId: event.actorUserId,
+          actorName: event.actorName,
+          actorEmail: event.actorEmail,
+          targetUserId: event.targetUserId,
+          targetEmail: event.targetEmail,
+          action: event.action,
+          previousValue: event.previousValue,
+          newValue: event.newValue,
+        });
+      } catch (pgErr) {
+        console.warn("[WorkspaceAudit] PostgreSQL audit sync notice:", pgErr);
+      }
+    }
   } catch (err) {
     console.error("[WorkspaceAudit] Failed to write audit event:", err);
   }

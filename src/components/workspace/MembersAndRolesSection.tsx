@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import styles from "./MembersAndRolesSection.module.css";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { subscribeToWorkspaceRealtime } from "@/lib/supabase/realtime";
 import { User } from "firebase/auth";
 import {
   WorkspaceRole,
@@ -170,9 +171,47 @@ export function MembersAndRolesSection({
       }
     );
 
+    // 4. Real-Time Supabase PostgreSQL Synchronization
+    let unsubRealtime = () => {};
+    currentUser.getIdToken().then((token) => {
+      const handle = subscribeToWorkspaceRealtime({
+        workspaceId,
+        firebaseIdToken: token,
+        onMemberChange: () => {
+          // Re-fetch members upon PostgreSQL table update
+          currentUser.getIdToken().then((freshToken) => {
+            fetch(`/api/workspace/members?workspaceId=${encodeURIComponent(workspaceId)}`, {
+              headers: { Authorization: `Bearer ${freshToken}` },
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.actorRole) setActorRole(data.actorRole);
+                if (data.members) setMembers(data.members);
+              })
+              .catch(() => {});
+          });
+        },
+        onInvitationChange: () => {
+          // Re-fetch invitations upon PostgreSQL table update
+          currentUser.getIdToken().then((freshToken) => {
+            fetch(`/api/workspace/invitations?workspaceId=${encodeURIComponent(workspaceId)}`, {
+              headers: { Authorization: `Bearer ${freshToken}` },
+            })
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.invitations) setInvitations(data.invitations);
+              })
+              .catch(() => {});
+          });
+        },
+      });
+      unsubRealtime = handle.unsubscribe;
+    }).catch(() => {});
+
     return () => {
       unsubMembers();
       unsubInvites();
+      unsubRealtime();
     };
   }, [currentUser, workspaceId]);
 

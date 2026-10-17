@@ -8,6 +8,10 @@ import {
   normalizeEmail,
   WorkspaceMember,
 } from "@/lib/workspaceMembers";
+import {
+  acceptPostgresWorkspaceInvitation,
+  recordPostgresSecurityAudit,
+} from "@/lib/supabase/workspaceService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -137,7 +141,7 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // 7. Record audit log
+    // 7. Record audit log in Firestore
     await recordWorkspaceAudit(result.workspaceId, {
       actorUserId: user.uid,
       actorName: user.name || user.email.split("@")[0],
@@ -147,6 +151,30 @@ export async function POST(req: NextRequest) {
       action: "invitation_accepted",
       newValue: `Accepted role: ${result.role}`,
     });
+
+    // 8. Synchronize acceptance to PostgreSQL with ACID transaction
+    try {
+      await acceptPostgresWorkspaceInvitation(tokenHash, {
+        uid: user.uid,
+        email: user.email,
+        name: user.name,
+      });
+
+      await recordPostgresSecurityAudit({
+        workspaceId: result.workspaceId,
+        actorUserId: user.uid,
+        actorName: user.name || user.email.split("@")[0],
+        actorEmail: user.email,
+        targetUserId: user.uid,
+        targetEmail: user.email,
+        action: "invitation_accepted",
+        newValue: `Accepted role: ${result.role}`,
+        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+        userAgent: req.headers.get("user-agent"),
+      });
+    } catch (pgErr) {
+      console.warn("[API Accept Invitation] PostgreSQL sync warning:", pgErr);
+    }
 
     // 8. Notify the inviter that their invite was accepted
     try {

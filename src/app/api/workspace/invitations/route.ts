@@ -18,6 +18,13 @@ import {
   generateSecureToken,
   sendWorkspaceInvitationEmail,
 } from "@/lib/invitationEmail";
+import { isDatabaseConfigured } from "@/lib/supabase/db";
+import {
+  getPostgresWorkspaceInvitations,
+  createPostgresWorkspaceInvitation,
+  recordPostgresSecurityAudit,
+  ensurePostgresWorkspace,
+} from "@/lib/supabase/workspaceService";
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,48 +36,67 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
     }
 
-    const invitationsSnap = await adminDb
-      .collection("workspaces")
-      .doc(workspaceId)
-      .collection("invitations")
-      .orderBy("createdAt", "desc")
-      .get();
-
     const invitations: Omit<WorkspaceInvitation, "tokenHash">[] = [];
-    const now = Date.now();
 
-    for (const doc of invitationsSnap.docs) {
-      const data = doc.data() as WorkspaceInvitation;
-      let status = data.status;
-
-      // Auto-mark expired if past expiresAt
-      const expiresMillis = data.expiresAt?.seconds ? data.expiresAt.seconds * 1000 : new Date(data.expiresAt).getTime();
-      if (status === "pending" && expiresMillis < now) {
-        status = "expired";
-        // Update in background
-        doc.ref.update({ status: "expired" }).catch(() => {});
+    // 1. Check PostgreSQL first if configured
+    if (isDatabaseConfigured()) {
+      try {
+        const pgInvites = await getPostgresWorkspaceInvitations(workspaceId);
+        if (pgInvites && pgInvites.length > 0) {
+          for (const inv of pgInvites) {
+            const { tokenHash, ...safeInvite } = inv;
+            invitations.push(safeInvite);
+          }
+        }
+      } catch (pgErr) {
+        console.warn("[API Workspace Invitations GET] PostgreSQL query failed, falling back to Firestore:", pgErr);
       }
+    }
 
-      invitations.push({
-        id: doc.id,
-        workspaceId: data.workspaceId,
-        invitedEmail: data.invitedEmail,
-        invitedEmailNormalized: data.invitedEmailNormalized,
-        role: data.role,
-        invitedBy: data.invitedBy,
-        inviterName: data.inviterName,
-        status,
-        message: data.message || "",
-        expiresAt: data.expiresAt,
-        deliveryStatus: data.deliveryStatus,
-        deliveryError: data.deliveryError || null,
-        deliveryMessageId: data.deliveryMessageId || null,
-        acceptedBy: data.acceptedBy || null,
-        acceptedAt: data.acceptedAt || null,
-        revokedAt: data.revokedAt || null,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-      });
+    // 2. Fallback to Firestore if PostgreSQL did not return records or is not configured
+    if (invitations.length === 0) {
+      const invitationsSnap = await adminDb
+        .collection("workspaces")
+        .doc(workspaceId)
+        .collection("invitations")
+        .orderBy("createdAt", "desc")
+        .get();
+
+      const now = Date.now();
+
+      for (const doc of invitationsSnap.docs) {
+        const data = doc.data() as WorkspaceInvitation;
+        let status = data.status;
+
+        // Auto-mark expired if past expiresAt
+        const expiresMillis = data.expiresAt?.seconds ? data.expiresAt.seconds * 1000 : new Date(data.expiresAt).getTime();
+        if (status === "pending" && expiresMillis < now) {
+          status = "expired";
+          // Update in background
+          doc.ref.update({ status: "expired" }).catch(() => {});
+        }
+
+        invitations.push({
+          id: doc.id,
+          workspaceId: data.workspaceId,
+          invitedEmail: data.invitedEmail,
+          invitedEmailNormalized: data.invitedEmailNormalized,
+          role: data.role,
+          invitedBy: data.invitedBy,
+          inviterName: data.inviterName,
+          status,
+          message: data.message || "",
+          expiresAt: data.expiresAt,
+          deliveryStatus: data.deliveryStatus,
+          deliveryError: data.deliveryError || null,
+          deliveryMessageId: data.deliveryMessageId || null,
+          acceptedBy: data.acceptedBy || null,
+          acceptedAt: data.acceptedAt || null,
+          revokedAt: data.revokedAt || null,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        });
+      }
     }
 
     return NextResponse.json({
@@ -79,6 +105,9 @@ export async function GET(req: NextRequest) {
       invitations,
     });
   } catch (err: any) {
+    if (err?.digest === "NEXT_PRERENDER_INTERRUPTED") {
+      throw err;
+    }
     console.error("[API Workspace Invitations GET] Error:", err);
     return NextResponse.json(
       { error: err.message || "Failed to retrieve workspace invitations" },
@@ -236,7 +265,7 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-    // 12. Record audit log
+    // 12. Record audit log in Firestore
     await recordWorkspaceAudit(workspaceId, {
       actorUserId: actor.uid,
       actorName: actor.displayName,
@@ -245,6 +274,43 @@ export async function POST(req: NextRequest) {
       action: "invitation_created",
       newValue: `Role: ${role}, Delivery: ${deliveryStatus}`,
     });
+
+    // 13. Synchronize to PostgreSQL if configured
+    try {
+      await ensurePostgresWorkspace(workspaceId, {
+        uid: actor.uid,
+        email: actor.email,
+        name: actor.displayName,
+      });
+
+      await createPostgresWorkspaceInvitation({
+        workspaceId,
+        invitedEmail: email.trim(),
+        role: role as WorkspaceRole,
+        invitedBy: actor.uid,
+        inviterName: actor.displayName,
+        tokenHash,
+        message: message.trim() || undefined,
+        expiresAt: expirationDate,
+        deliveryStatus,
+        deliveryError: emailResult.error || null,
+        deliveryMessageId: emailResult.messageId || null,
+      });
+
+      await recordPostgresSecurityAudit({
+        workspaceId,
+        actorUserId: actor.uid,
+        actorName: actor.displayName,
+        actorEmail: actor.email,
+        targetEmail: email.trim(),
+        action: "invitation_created",
+        newValue: `Role: ${role}, Delivery: ${deliveryStatus}`,
+        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+        userAgent: req.headers.get("user-agent"),
+      });
+    } catch (pgErr) {
+      console.warn("[API Workspace Invitations POST] PostgreSQL sync error:", pgErr);
+    }
 
     return NextResponse.json({
       success: true,

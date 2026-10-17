@@ -10,6 +10,10 @@ import {
   canRemoveMember,
   WorkspaceMember,
 } from "@/lib/workspaceMembers";
+import {
+  removePostgresMember,
+  recordPostgresSecurityAudit,
+} from "@/lib/supabase/workspaceService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,10 +70,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Delete member document
+    // Delete member document in Firestore
     await memberRef.delete();
 
-    // Record audit event
+    // Remove member from PostgreSQL
+    try {
+      await removePostgresMember(workspaceId, targetUserId);
+    } catch (pgErr) {
+      console.warn("[API Member Remove] PostgreSQL removal error:", pgErr);
+    }
+
+    // Record audit event in Firestore
     await recordWorkspaceAudit(workspaceId, {
       actorUserId: actor.uid,
       actorName: actor.displayName,
@@ -80,6 +91,25 @@ export async function POST(req: NextRequest) {
       previousValue: memberData.role,
       newValue: "removed",
     });
+
+    // Record audit event in PostgreSQL
+    try {
+      await recordPostgresSecurityAudit({
+        workspaceId,
+        actorUserId: actor.uid,
+        actorName: actor.displayName,
+        actorEmail: actor.email,
+        targetUserId,
+        targetEmail: memberData.email,
+        action: "member_removed",
+        previousValue: memberData.role,
+        newValue: "removed",
+        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+        userAgent: req.headers.get("user-agent"),
+      });
+    } catch (pgAuditErr) {
+      console.warn("[API Member Remove] PostgreSQL audit error:", pgAuditErr);
+    }
 
     // Notify user of membership revocation
     try {

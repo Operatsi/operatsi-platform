@@ -12,6 +12,10 @@ import {
   generateSecureToken,
   sendWorkspaceInvitationEmail,
 } from "@/lib/invitationEmail";
+import {
+  resendPostgresWorkspaceInvitation,
+  recordPostgresSecurityAudit,
+} from "@/lib/supabase/workspaceService";
 
 export async function POST(req: NextRequest) {
   try {
@@ -104,7 +108,7 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-    // 6. Record audit log
+    // 6. Record audit log in Firestore
     await recordWorkspaceAudit(workspaceId, {
       actorUserId: actor.uid,
       actorName: actor.displayName,
@@ -113,6 +117,33 @@ export async function POST(req: NextRequest) {
       action: "invitation_resent",
       newValue: `Fresh token issued. Delivery: ${deliveryStatus}`,
     });
+
+    // 7. Synchronize to PostgreSQL
+    try {
+      await resendPostgresWorkspaceInvitation({
+        workspaceId,
+        invitationId,
+        tokenHash,
+        expiresAt: expirationDate,
+        deliveryStatus: emailResult.success ? "delivered" : "failed",
+        deliveryError: emailResult.error || null,
+        deliveryMessageId: emailResult.messageId || null,
+      });
+
+      await recordPostgresSecurityAudit({
+        workspaceId,
+        actorUserId: actor.uid,
+        actorName: actor.displayName,
+        actorEmail: actor.email,
+        targetEmail: inviteData.invitedEmail,
+        action: "invitation_resent",
+        newValue: `Fresh token issued. Delivery: ${deliveryStatus}`,
+        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+        userAgent: req.headers.get("user-agent"),
+      });
+    } catch (pgErr) {
+      console.warn("[API Workspace Invitations Resend] PostgreSQL sync error:", pgErr);
+    }
 
     return NextResponse.json({
       success: true,

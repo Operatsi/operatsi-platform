@@ -11,6 +11,10 @@ import {
   canManageMemberRole,
   WorkspaceMember,
 } from "@/lib/workspaceMembers";
+import {
+  updatePostgresMemberRole,
+  recordPostgresSecurityAudit,
+} from "@/lib/supabase/workspaceService";
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -72,13 +76,20 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // Update role
+    // Update role in Firestore
     await memberRef.update({
       role: newRole,
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // Record audit event
+    // Synchronize role update to PostgreSQL
+    try {
+      await updatePostgresMemberRole(workspaceId, targetUserId, newRole as WorkspaceRole);
+    } catch (pgErr) {
+      console.warn("[API Member Role] PostgreSQL sync error:", pgErr);
+    }
+
+    // Record audit event in Firestore
     await recordWorkspaceAudit(workspaceId, {
       actorUserId: actor.uid,
       actorName: actor.displayName,
@@ -89,6 +100,25 @@ export async function PATCH(req: NextRequest) {
       previousValue: currentRole,
       newValue: newRole,
     });
+
+    // Record audit event in PostgreSQL
+    try {
+      await recordPostgresSecurityAudit({
+        workspaceId,
+        actorUserId: actor.uid,
+        actorName: actor.displayName,
+        actorEmail: actor.email,
+        targetUserId,
+        targetEmail: memberData.email,
+        action: "member_role_changed",
+        previousValue: currentRole,
+        newValue: newRole,
+        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+        userAgent: req.headers.get("user-agent"),
+      });
+    } catch (pgAuditErr) {
+      console.warn("[API Member Role] PostgreSQL audit error:", pgAuditErr);
+    }
 
     // Dispatch real in-app notification to the target user
     try {
