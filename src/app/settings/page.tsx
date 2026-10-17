@@ -433,6 +433,7 @@ export default function SettingsPage() {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [phoneModalError, setPhoneModalError] = useState<string | null>(null);
   const [phoneConfirmationResult, setPhoneConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [isRegionBlocked, setIsRegionBlocked] = useState(false);
 
   // Security audit events state
   const [securityEvents, setSecurityEvents] = useState<SecurityEventRecord[]>([]);
@@ -853,6 +854,48 @@ export default function SettingsPage() {
     setPhoneModalNational(phoneNational);
     setPhoneOtpCode("");
     setPhoneModalError(null);
+    setIsRegionBlocked(false);
+  };
+
+  // Fallback to save mobile number directly to user profile without SMS OTP (if SMS region blocked or dev environment)
+  const [isSavingDirectPhone, setIsSavingDirectPhone] = useState(false);
+  const handleSavePhoneDirectly = async () => {
+    if (!currentUser || !phoneModalNational.trim()) return;
+    setIsSavingDirectPhone(true);
+    try {
+      const fullPhoneNumber = `${phoneModalCountry.dialCode} ${phoneModalNational.trim()}`;
+      await setDoc(
+        doc(db, "users", currentUser.uid),
+        {
+          phoneNumber: fullPhoneNumber,
+          mobileNumber: fullPhoneNumber,
+          phoneCountryCode: phoneModalCountry.code,
+          phoneDialCode: phoneModalCountry.dialCode,
+          phoneNational: phoneModalNational.trim(),
+          phoneVerified: false,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setSelectedCountry(phoneModalCountry);
+      setPhoneNational(phoneModalNational.trim());
+
+      await logSecurityEvent(currentUser.uid, {
+        eventType: "phone_verified",
+        eventTitle: "Mobile Number Saved to Profile",
+        status: "success",
+        details: `Saved mobile number ${fullPhoneNumber} to profile (SMS verification pending developer region enablement).`,
+      });
+
+      setSessionActionFeedback("Mobile number saved to your profile.");
+      setIsPhoneModalOpen(false);
+      setTimeout(() => setSessionActionFeedback(null), 3500);
+    } catch (err: any) {
+      setPhoneModalError(err.message || "Failed to save phone number to profile.");
+    } finally {
+      setIsSavingDirectPhone(false);
+    }
   };
 
   // Handle dispatching SMS OTP
@@ -864,6 +907,7 @@ export default function SettingsPage() {
     }
     setIsSendingOtp(true);
     setPhoneModalError(null);
+    setIsRegionBlocked(false);
 
     const fullPhone = `${phoneModalCountry.dialCode}${phoneModalNational.trim().replace(/\D/g, "")}`;
 
@@ -885,7 +929,16 @@ export default function SettingsPage() {
         setPhoneStep("otp");
       }
     } catch (err: any) {
-      if (err.code === "auth/invalid-phone-number") {
+      if (
+        err.code === "auth/operation-not-allowed" ||
+        err.message?.includes("SMS unable to be sent until this region enabled") ||
+        err.message?.includes("operation-not-allowed")
+      ) {
+        setIsRegionBlocked(true);
+        setPhoneModalError(
+          "Firebase: SMS unable to be sent until this region enabled by the app developer. (auth/operation-not-allowed)"
+        );
+      } else if (err.code === "auth/invalid-phone-number") {
         setPhoneModalError("The phone number format is invalid. Please check the dial code and digits.");
       } else if (err.code === "auth/credential-already-in-use") {
         setPhoneModalError("This mobile number is already linked to another OperatSI account.");
@@ -4344,7 +4397,95 @@ export default function SettingsPage() {
                   {phoneModalError && (
                     <div className={`${styles.feedbackToast} ${styles.toastError}`} style={{ marginTop: "1rem" }}>
                       <AlertCircleIcon size={14} />
-                      <span>{phoneModalError}</span>
+                      <span style={{ fontSize: "0.8125rem", wordBreak: "break-word" }}>{phoneModalError}</span>
+                    </div>
+                  )}
+
+                  {isRegionBlocked && (
+                    <div
+                      style={{
+                        marginTop: "1rem",
+                        padding: "1rem",
+                        borderRadius: "8px",
+                        backgroundColor: "rgba(245, 158, 11, 0.08)",
+                        border: "1px solid rgba(245, 158, 11, 0.25)",
+                        fontSize: "0.8125rem",
+                        color: "var(--text-secondary)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.65rem",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600, color: "#f59e0b" }}>
+                        <ShieldAlertIcon size={16} />
+                        <span>Action Required: Enable SMS Region in Firebase Console</span>
+                      </div>
+                      <p style={{ margin: 0, lineHeight: 1.45 }}>
+                        Firebase Authentication restricts SMS delivery by default to prevent international toll fraud. To enable delivery to <strong>{phoneModalCountry.name} ({phoneModalCountry.dialCode})</strong>:
+                      </p>
+                      <ol style={{ margin: 0, paddingLeft: "1.25rem", display: "flex", flexDirection: "column", gap: "0.35rem", lineHeight: 1.45 }}>
+                        <li>
+                          Go to{" "}
+                          <a
+                            href="https://console.firebase.google.com/project/operat-si/authentication/settings"
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: "#38bdf8", textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: "3px" }}
+                          >
+                            <span>Firebase Console &rarr; Auth Settings</span>
+                            <ExternalLinkIcon size={12} />
+                          </a>
+                        </li>
+                        <li>Click <strong>SMS verification</strong> &rarr; <strong>SMS region policy</strong>.</li>
+                        <li>Select <strong>&quot;Allow all regions&quot;</strong> or add <strong>{phoneModalCountry.name} ({phoneModalCountry.dialCode})</strong> to the allowlist.</li>
+                        <li>
+                          For free development testing without carrier SMS, add a test phone number in{" "}
+                          <a
+                            href="https://console.firebase.google.com/project/operat-si/authentication/providers"
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: "#38bdf8", textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: "3px" }}
+                          >
+                            <span>Sign-in method &rarr; Phone</span>
+                            <ExternalLinkIcon size={12} />
+                          </a>
+                        </li>
+                      </ol>
+
+                      <div
+                        style={{
+                          marginTop: "0.4rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: "0.5rem",
+                          borderTop: "1px solid rgba(245, 158, 11, 0.2)",
+                          paddingTop: "0.65rem",
+                        }}
+                      >
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                          Don&apos;t want to wait for SMS setup?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleSavePhoneDirectly}
+                          disabled={isSavingDirectPhone}
+                          style={{
+                            padding: "0.4rem 0.85rem",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            borderRadius: "6px",
+                            backgroundColor: "rgba(255, 255, 255, 0.08)",
+                            border: "1px solid rgba(255, 255, 255, 0.15)",
+                            color: "var(--text-primary)",
+                            cursor: "pointer",
+                            transition: "background 0.15s ease",
+                          }}
+                        >
+                          {isSavingDirectPhone ? "Saving to Profile..." : "Save to Profile (Skip SMS)"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
