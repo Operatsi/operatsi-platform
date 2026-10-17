@@ -32,6 +32,7 @@ import {
   BellIcon,
   PlusIcon,
   MoreHorizontalIcon,
+  UserIcon,
 } from "./Icons";
 import {
   NAVIGATION_SECTIONS,
@@ -317,11 +318,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, activeRoute }) =
             className={styles.sidebarUserCard}
             title={`${activeUserName} (${activeUserEmail}) — Manage profile & settings`}
           >
-            <div className={styles.sidebarUserAvatar}>{userInitial}</div>
+            <div className={styles.sidebarUserAvatar}>
+              <UserIcon size={16} />
+            </div>
             {isSidebarOpen && (
               <>
                 <div className={styles.sidebarUserInfo}>
-                  <span className={styles.sidebarUserName}>My Account</span>
+                  <span className={styles.sidebarUserName}>{activeUserName}</span>
                   <span className={styles.sidebarUserRole}>Profile &amp; preferences</span>
                 </div>
                 <button
@@ -427,7 +430,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, activeRoute }) =
               className={styles.topUserPill}
               title={`${activeUserName} (${activeUserEmail})`}
             >
-              <div className={styles.topUserAvatar}>{userInitial}</div>
+              <div className={styles.topUserAvatar}>
+                <UserIcon size={14} />
+              </div>
               <span className={styles.topUserName}>{activeUserName}</span>
             </Link>
 
