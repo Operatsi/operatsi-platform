@@ -22,6 +22,7 @@ import {
   LockIcon,
   UserIcon,
   PhoneIcon,
+  PlusIcon,
   SpinnerIcon,
   TrashIcon,
   CloseIcon,
@@ -487,7 +488,7 @@ interface NavItem {
               onClick={() => setIsMobileOpen((prev) => !prev)}
               aria-label="Toggle mobile menu"
             >
-              <MenuToggleIcon size={20} />
+              <MenuToggleIcon size={18} />
             </button>
 
             <div className={styles.breadcrumbGroup}>
@@ -499,14 +500,17 @@ interface NavItem {
             </div>
 
             <div className={styles.statusPill}>
-              <span className={styles.pulseDot} />
-              <span>3 Agents Online</span>
+              <span className={styles.pulseDotWrapper}>
+                <span className={styles.pulsePing} />
+                <span className={styles.pulseDot} />
+              </span>
+              <span className={styles.statusText}>3 Online</span>
             </div>
           </div>
 
-          {/* Search bar */}
+          {/* Search bar with smooth interactive expansion */}
           <div className={styles.searchBarWrapper}>
-            <SearchIcon size={16} />
+            <SearchIcon size={14} className={styles.searchIcon} />
             <input
               type="text"
               placeholder="Search agents, runs, workflows..."
@@ -524,8 +528,11 @@ interface NavItem {
               className={styles.actionButton}
               onClick={() => alert("Launching new Multi-Agent Workflow...")}
             >
-              <span>+ New Agent</span>
+              <PlusIcon size={13} className={styles.actionButtonIcon} />
+              <span>New Agent</span>
             </button>
+
+            <div className={styles.headerDivider} />
 
             <button
               type="button"
@@ -534,34 +541,35 @@ interface NavItem {
               aria-label="Notifications"
               onClick={() => alert("All 3 agents operating within normal bounds.")}
             >
-              <BellIcon size={18} />
+              <BellIcon size={16} className={styles.bellIcon} />
               <span className={styles.unreadDot} />
             </button>
 
             {/* Global Theme Toggle */}
             <ThemeToggle />
 
-            {/* Top User Pill: User Name on Top, User Email below */}
+            <div className={styles.headerDivider} />
+
+            {/* Top User Pill: Compact, sleek chip */}
             <div
               className={styles.topUserPill}
               onClick={() => setActiveTab("settings")}
-              title="Click to view user settings"
+              title={`${activeUserName} (${activeUserEmail}) — Click to view settings`}
             >
               <div className={styles.topUserAvatar}>{userInitial}</div>
               <div className={styles.topUserDetails}>
                 <span className={styles.topUserName}>{activeUserName}</span>
-                <span className={styles.topUserEmail}>{activeUserEmail}</span>
               </div>
             </div>
 
             <button
               type="button"
-              className={styles.iconBtn}
+              className={`${styles.iconBtn} ${styles.logoutBtn}`}
               onClick={handleSignOut}
               title="Sign Out of Workspace"
               aria-label="Sign out"
             >
-              <LogoutIcon size={18} />
+              <LogoutIcon size={16} />
             </button>
           </div>
         </header>

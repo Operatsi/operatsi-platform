@@ -12,17 +12,17 @@ export const ThemeToggle: React.FC = () => {
     {
       id: "light",
       label: "Light mode",
-      icon: <LightModeIcon size={18} />,
+      icon: <LightModeIcon size={14} />,
     },
     {
       id: "system",
       label: "System preference",
-      icon: <SystemModeIcon size={18} />,
+      icon: <SystemModeIcon size={14} />,
     },
     {
       id: "dark",
       label: "Dark mode",
-      icon: <DarkModeIcon size={18} />,
+      icon: <DarkModeIcon size={14} />,
     },
   ];
 

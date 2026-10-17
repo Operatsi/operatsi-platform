@@ -3,31 +3,49 @@
   align-items: center;
   background: var(--toggle-bg);
   border: 1px solid var(--toggle-border);
-  border-radius: 10px;
-  padding: 3px;
+  border-radius: 8px;
+  padding: 2px;
   gap: 2px;
+  height: 32px;
+  box-sizing: border-box;
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.segmentedControl:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+:global([data-theme="light"]) .segmentedControl:hover,
+:global(html.light) .segmentedControl:hover {
+  border-color: rgba(0, 0, 0, 0.18);
 }
 
 .segmentButton {
   background: transparent;
   border: none;
-  border-radius: 7px;
-  width: 32px;
-  height: 32px;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--text-muted);
   --fillg: var(--text-muted);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
+  position: relative;
 }
 
 .segmentButton:hover {
   color: var(--text-primary);
   --fillg: var(--text-primary);
   background: var(--toggle-hover-bg);
+  transform: translateY(-1px);
+}
+
+.segmentButton:active {
+  transform: scale(0.92);
 }
 
 .segmentButton:focus-visible {
@@ -38,4 +56,6 @@
   background: var(--toggle-active-bg);
   color: var(--toggle-active-text);
   --fillg: var(--toggle-active-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  transform: none;
 }
