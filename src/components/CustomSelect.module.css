@@ -1,0 +1,281 @@
+/* =========================================================
+   CUSTOM SELECT DROPDOWN COMPONENT
+   Professional, Corporate, Minimalist, Accessible
+   Seamless Dark/Light Mode
+   ========================================================= */
+
+.selectWrapper {
+  position: relative;
+  width: 100%;
+  user-select: none;
+}
+
+/* Trigger Button */
+.triggerBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  min-height: 38px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.triggerBtn:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.triggerBtn:focus-visible,
+.triggerOpen {
+  border-color: var(--input-border-focus) !important;
+  box-shadow: 0 0 0 3px var(--input-focus-ring) !important;
+}
+
+.triggerBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Trigger content */
+.triggerContent {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.triggerLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.triggerBadge {
+  font-size: 0.675rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  flex-shrink: 0;
+}
+
+/* Chevron */
+.chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+  color: var(--text-primary);
+}
+
+/* Dropdown Menu Popover */
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  min-width: 220px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.35), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+  z-index: 80;
+  padding: 0.35rem;
+  max-height: 280px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--card-border) transparent;
+  animation: menuAppear 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropdownMenuRight {
+  left: auto;
+  right: 0;
+}
+
+:global([data-theme="light"]) .dropdownMenu,
+:global(html.light) .dropdownMenu {
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+
+.dropdownMenu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dropdownMenu::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 4px;
+}
+
+@keyframes menuAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Search Box inside dropdown */
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--divider-color);
+  border-radius: 6px;
+  margin-bottom: 0.35rem;
+}
+
+:global([data-theme="light"]) .searchBox {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.searchInput {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 0.775rem;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+/* Option List */
+.optionsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.optionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s ease;
+  outline: none;
+}
+
+.optionItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+:global([data-theme="light"]) .optionItem:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.optionSelected {
+  background: rgba(37, 99, 235, 0.1) !important;
+}
+
+:global([data-theme="light"]) .optionSelected {
+  background: rgba(37, 99, 235, 0.08) !important;
+}
+
+.optionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.optionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.optionLabel {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.optionSelected .optionLabel {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+:global([data-theme="light"]) .optionSelected .optionLabel {
+  color: #1d4ed8;
+}
+
+.optionDesc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.optionBadge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  flex-shrink: 0;
+}
+
+.checkIcon {
+  color: var(--brand-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.noResults {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.785rem;
+  color: var(--text-muted);
+  text-align: center;
+}

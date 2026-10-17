@@ -41,6 +41,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, User, deleteUser, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { CustomSelect, SelectOption } from "@/components/CustomSelect";
 import styles from "./settings.module.css";
 
 // -------------------------------------------------------------
@@ -139,6 +140,91 @@ const COUNTRIES: CountryOption[] = [
   { name: "South Africa", code: "ZA", dialCode: "+27", flag: "🇿🇦" },
 ];
 
+const LANGUAGE_OPTIONS: SelectOption[] = [
+  { value: "en-US", label: "English (United States)", badge: "Primary", description: "Default corporate locale & formatting" },
+  { value: "en-GB", label: "English (United Kingdom)", description: "British spelling & date standards" },
+  { value: "de-DE", label: "Deutsch (German)", description: "European standard business German" },
+  { value: "fr-FR", label: "Français (French)", description: "French metropolitan localization" },
+  { value: "ja-JP", label: "日本語 (Japanese)", description: "East Asia business locale" },
+  { value: "es-ES", label: "Español (Spanish)", description: "Spanish continental localization" },
+];
+
+const TIMEZONE_OPTIONS: SelectOption[] = [
+  { value: "UTC", label: "UTC (Coordinated Universal Time)", badge: "Standard", description: "Global operational baseline" },
+  { value: "America/New_York", label: "Eastern Time (US & Canada)", description: "UTC-05:00 / UTC-04:00 (EDT)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)", description: "UTC-08:00 / UTC-07:00 (PDT)" },
+  { value: "Europe/London", label: "London (GMT / BST)", description: "UTC+00:00 / UTC+01:00" },
+  { value: "Europe/Frankfurt", label: "Frankfurt (CET / CEST)", description: "UTC+01:00 / UTC+02:00" },
+  { value: "Asia/Kolkata", label: "India Standard Time (IST)", description: "UTC+05:30 (No daylight saving)" },
+  { value: "Asia/Tokyo", label: "Tokyo (JST)", description: "UTC+09:00" },
+  { value: "Asia/Singapore", label: "Singapore (SGT)", description: "UTC+08:00" },
+];
+
+const DENSITY_OPTIONS: SelectOption[] = [
+  { value: "comfortable", label: "Comfortable", badge: "Default", description: "Generous whitespace for executive readability" },
+  { value: "compact", label: "Compact (High Density)", badge: "Pro", description: "Optimized for dense data tables & analyst workflows" },
+];
+
+const INDUSTRY_OPTIONS: SelectOption[] = [
+  { value: "saas", label: "Enterprise SaaS & Technology", badge: "Core", description: "Software platforms, cloud services & AI" },
+  { value: "fintech", label: "Financial Services & Banking", description: "Capital markets, banking, fintech & payments" },
+  { value: "healthcare", label: "Healthcare & Life Sciences", description: "Biopharma, providers, clinical & health tech" },
+  { value: "logistics", label: "Supply Chain & Logistics", description: "Freight, global logistics, retail & fulfillment" },
+  { value: "consulting", label: "Professional & Legal Services", description: "Consulting firms, legal advisory & corporate auditing" },
+];
+
+const COMPANY_SIZE_OPTIONS: SelectOption[] = [
+  { value: "10", label: "1 – 10 Team Members", description: "Seed / Startup founding team" },
+  { value: "50", label: "11 – 50 Team Members", description: "Early growth stage" },
+  { value: "200", label: "51 – 200 Team Members", badge: "Selected", description: "Mid-market enterprise" },
+  { value: "1000", label: "201 – 1,000 Team Members", description: "Scaling corporate enterprise" },
+  { value: "enterprise", label: "1,000+ Enterprise Fleet", badge: "Fleet", description: "Global multi-subsidiary enterprise" },
+];
+
+const DATA_REGION_OPTIONS: SelectOption[] = [
+  { value: "us-east-1", label: "US East (N. Virginia)", badge: "Multi-Cloud", description: "AWS & GCP Multi-Cloud mesh with sub-10ms latency" },
+  { value: "us-west-2", label: "US West (Oregon)", description: "GCP Isolated zero-trust enclave" },
+  { value: "eu-central-1", label: "Europe Central (Frankfurt)", badge: "GDPR", description: "Frankfurt sovereign cloud with strict EU residency" },
+  { value: "ap-southeast-1", label: "Asia Pacific (Singapore)", description: "Tier-4 datacenter with low latency for APAC" },
+];
+
+const INVITE_ROLE_OPTIONS: SelectOption[] = [
+  { value: "Admin", label: "Admin", badge: "Elevated", description: "Full operational control, billing & security permissions" },
+  { value: "Member", label: "Member", badge: "Standard", description: "Autonomous agent execution, CRM & workflow management" },
+  { value: "Viewer", label: "Viewer", description: "Read-only telemetry, reports & execution logs" },
+];
+
+const AI_MODEL_OPTIONS: SelectOption[] = [
+  { value: "claude-3-7-sonnet", label: "Claude 3.7 Sonnet", badge: "Thinking", description: "Extended thinking & deep code architecture synthesis" },
+  { value: "gpt-4o", label: "OpenAI GPT-4o Enterprise", badge: "Fast", description: "High-throughput multimodal reasoning & execution" },
+  { value: "gemini-2-5-pro", label: "Google Gemini 2.5 Pro Ultra", badge: "2M Context", description: "Massive context analysis for deep document corpuses" },
+  { value: "operatsi-hybrid", label: "OperatSI Adaptive Neural Route", badge: "Automated", description: "Dynamically switches models for cost-latency optimization" },
+];
+
+const AI_STYLE_OPTIONS: SelectOption[] = [
+  { value: "concise", label: "Concise & Action-Oriented", badge: "Enterprise", description: "Direct outputs without redundant preamble" },
+  { value: "balanced", label: "Balanced with Step-by-Step Rationale", badge: "Recommended", description: "Clear explanations with structured actionable next steps" },
+  { value: "exhaustive", label: "Exhaustive & Academic", description: "Full audit citations, chain-of-thought, and deep context" },
+];
+
+const BROWSER_PERSONA_OPTIONS: SelectOption[] = [
+  { value: "stealth", label: "Stealth Chromium", badge: "Anti-Detection", description: "Anti-bot evasion, fingerprint masking & proxy rotation" },
+  { value: "desktop", label: "Standard Desktop Chrome", description: "Windows 11 enterprise Chrome profile" },
+  { value: "mac", label: "Standard Desktop Safari", description: "macOS Sonoma WebKit identity" },
+];
+
+const AUDIT_RETENTION_OPTIONS: SelectOption[] = [
+  { value: "30", label: "30 Days", description: "Standard operational logs" },
+  { value: "90", label: "90 Days", badge: "SOC2", description: "Standard compliance baseline" },
+  { value: "365", label: "1 Year", badge: "Enterprise", description: "Long-term regulatory archival" },
+];
+
+const AGENT_RETENTION_OPTIONS: SelectOption[] = [
+  { value: "14", label: "14 Days", description: "High turnover debug traces" },
+  { value: "30", label: "30 Days", badge: "Default", description: "Recommended execution trace lifecycle" },
+  { value: "60", label: "60 Days", description: "Extended forensics retention" },
+];
+
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -171,6 +257,9 @@ export default function SettingsPage() {
   const [workspaceName, setWorkspaceName] = useState("OperatSI Enterprise Core");
   const [workspaceSlug] = useState("operatsi-core-prod-01");
   const [isCopiedSlug, setIsCopiedSlug] = useState(false);
+  const [industry, setIndustry] = useState("saas");
+  const [companySize, setCompanySize] = useState("200");
+  const [dataRegion, setDataRegion] = useState("us-east-1");
   const [workspaceFeedback, setWorkspaceFeedback] = useState<string | null>(null);
 
   // Appearance state
@@ -202,8 +291,13 @@ export default function SettingsPage() {
 
   // Cloud Browser state
   const [concurrentBrowsers, setConcurrentBrowsers] = useState(5);
+  const [browserPersona, setBrowserPersona] = useState("stealth");
   const [headlessMode, setHeadlessMode] = useState(false);
   const [recordSessions, setRecordSessions] = useState(true);
+
+  // Data & Privacy retention state
+  const [auditRetention, setAuditRetention] = useState("90");
+  const [agentRetention, setAgentRetention] = useState("30");
 
   // Security state
   const [mfaEnforced, setMfaEnforced] = useState(true);
@@ -611,36 +705,20 @@ export default function SettingsPage() {
 
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Preferred Language</label>
-                        <select
-                          className={styles.select}
+                        <CustomSelect
                           value={language}
-                          onChange={(e) => setLanguage(e.target.value)}
-                        >
-                          <option value="en-US">English (United States)</option>
-                          <option value="en-GB">English (United Kingdom)</option>
-                          <option value="de-DE">Deutsch (German)</option>
-                          <option value="fr-FR">Français (French)</option>
-                          <option value="ja-JP">日本語 (Japanese)</option>
-                          <option value="es-ES">Español (Spanish)</option>
-                        </select>
+                          onChange={(val) => setLanguage(val)}
+                          options={LANGUAGE_OPTIONS}
+                        />
                       </div>
 
                       <div className={styles.formGroup}>
                         <label className={styles.formLabel}>Time Zone</label>
-                        <select
-                          className={styles.select}
+                        <CustomSelect
                           value={timeZone}
-                          onChange={(e) => setTimeZone(e.target.value)}
-                        >
-                          <option value="UTC">UTC (Coordinated Universal Time)</option>
-                          <option value="America/New_York">Eastern Time (US & Canada)</option>
-                          <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
-                          <option value="Europe/London">London (GMT / BST)</option>
-                          <option value="Europe/Frankfurt">Frankfurt (CET)</option>
-                          <option value="Asia/Kolkata">India Standard Time (IST)</option>
-                          <option value="Asia/Tokyo">Tokyo (JST)</option>
-                          <option value="Asia/Singapore">Singapore (SGT)</option>
-                        </select>
+                          onChange={(val) => setTimeZone(val)}
+                          options={TIMEZONE_OPTIONS}
+                        />
                       </div>
 
                       <div className={`${styles.formGroup} ${styles.formGridFull}`}>
@@ -1004,15 +1082,13 @@ export default function SettingsPage() {
                       <p className={styles.settingDesc}>Compact density increases information per screen for power analysts.</p>
                     </div>
                     <div className={styles.settingControl}>
-                      <select
-                        className={styles.select}
+                      <CustomSelect
                         value={density}
-                        onChange={(e) => setDensity(e.target.value as "comfortable" | "compact")}
-                        style={{ width: "150px" }}
-                      >
-                        <option value="comfortable">Comfortable</option>
-                        <option value="compact">Compact (High Density)</option>
-                      </select>
+                        onChange={(val) => setDensity(val as "comfortable" | "compact")}
+                        options={DENSITY_OPTIONS}
+                        align="right"
+                        style={{ minWidth: "220px" }}
+                      />
                     </div>
                   </div>
 
@@ -1297,34 +1373,29 @@ export default function SettingsPage() {
 
                     <div className={styles.formGroup}>
                       <label className={styles.formLabel}>Industry Sector</label>
-                      <select className={styles.select} defaultValue="saas">
-                        <option value="saas">Enterprise SaaS &amp; Technology</option>
-                        <option value="fintech">Financial Services &amp; Banking</option>
-                        <option value="healthcare">Healthcare &amp; Life Sciences</option>
-                        <option value="logistics">Supply Chain &amp; Logistics</option>
-                        <option value="consulting">Professional &amp; Legal Services</option>
-                      </select>
+                      <CustomSelect
+                        value={industry}
+                        onChange={(val) => setIndustry(val)}
+                        options={INDUSTRY_OPTIONS}
+                      />
                     </div>
 
                     <div className={styles.formGroup}>
                       <label className={styles.formLabel}>Organization Size</label>
-                      <select className={styles.select} defaultValue="200">
-                        <option value="10">1 – 10 Team Members</option>
-                        <option value="50">11 – 50 Team Members</option>
-                        <option value="200">51 – 200 Team Members</option>
-                        <option value="1000">201 – 1,000 Team Members</option>
-                        <option value="enterprise">1,000+ Enterprise Fleet</option>
-                      </select>
+                      <CustomSelect
+                        value={companySize}
+                        onChange={(val) => setCompanySize(val)}
+                        options={COMPANY_SIZE_OPTIONS}
+                      />
                     </div>
 
                     <div className={`${styles.formGroup} ${styles.formGridFull}`}>
                       <label className={styles.formLabel}>Data Residency Region</label>
-                      <select className={styles.select} defaultValue="us-east-1">
-                        <option value="us-east-1">US East (N. Virginia, AWS &amp; GCP Multi-Cloud)</option>
-                        <option value="us-west-2">US West (Oregon, GCP Isolated)</option>
-                        <option value="eu-central-1">Europe Central (Frankfurt, GDPR Sovereign Cloud)</option>
-                        <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
-                      </select>
+                      <CustomSelect
+                        value={dataRegion}
+                        onChange={(val) => setDataRegion(val)}
+                        options={DATA_REGION_OPTIONS}
+                      />
                       <span className={styles.formHint}>Encrypted at rest with AES-256 and customer-managed keys (CMEK).</span>
                     </div>
                   </div>
@@ -1499,11 +1570,11 @@ export default function SettingsPage() {
 
                         <div className={styles.formGroup}>
                           <label className={styles.formLabel}>Assigned Role</label>
-                          <select className={styles.select} value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
-                            <option value="Admin">Admin (Full Operational Control)</option>
-                            <option value="Member">Member (Agent Execution &amp; CRM)</option>
-                            <option value="Viewer">Viewer (Read-Only Telemetry)</option>
-                          </select>
+                          <CustomSelect
+                            value={inviteRole}
+                            onChange={(val) => setInviteRole(val)}
+                            options={INVITE_ROLE_OPTIONS}
+                          />
                         </div>
                       </div>
 
@@ -1715,21 +1786,20 @@ export default function SettingsPage() {
                   <div className={styles.formGrid}>
                     <div className={styles.formGroup}>
                       <label className={styles.formLabel}>Default AI Model</label>
-                      <select className={styles.select} value={defaultAiModel} onChange={(e) => setDefaultAiModel(e.target.value)}>
-                        <option value="claude-3-7-sonnet">Claude 3.7 Sonnet (Extended Thinking &amp; Hybrid Reasoning)</option>
-                        <option value="gpt-4o">OpenAI GPT-4o Enterprise (High Throughput Multimodal)</option>
-                        <option value="gemini-2-5-pro">Google Gemini 2.5 Pro Ultra (2M Context Window)</option>
-                        <option value="operatsi-hybrid">OperatSI Adaptive Neural Route (Automatic Cost Optimization)</option>
-                      </select>
+                      <CustomSelect
+                        value={defaultAiModel}
+                        onChange={(val) => setDefaultAiModel(val)}
+                        options={AI_MODEL_OPTIONS}
+                      />
                     </div>
 
                     <div className={styles.formGroup}>
                       <label className={styles.formLabel}>Response Style &amp; Verbosity</label>
-                      <select className={styles.select} value={aiStyle} onChange={(e) => setAiStyle(e.target.value)}>
-                        <option value="concise">Concise &amp; Action-Oriented (Enterprise Default)</option>
-                        <option value="balanced">Balanced with Step-by-Step Rationale</option>
-                        <option value="exhaustive">Exhaustive &amp; Academic (Full Audit Citations)</option>
-                      </select>
+                      <CustomSelect
+                        value={aiStyle}
+                        onChange={(val) => setAiStyle(val)}
+                        options={AI_STYLE_OPTIONS}
+                      />
                     </div>
 
                     <div className={styles.formGroup}>
@@ -1925,11 +1995,11 @@ export default function SettingsPage() {
 
                     <div className={styles.formGroup}>
                       <label className={styles.formLabel}>Browser User-Agent Persona</label>
-                      <select className={styles.select} defaultValue="stealth">
-                        <option value="stealth">Stealth Chromium (Anti-Detection Enabled)</option>
-                        <option value="desktop">Standard Desktop Chrome (Windows 11)</option>
-                        <option value="mac">Standard Desktop Safari (macOS)</option>
-                      </select>
+                      <CustomSelect
+                        value={browserPersona}
+                        onChange={(val) => setBrowserPersona(val)}
+                        options={BROWSER_PERSONA_OPTIONS}
+                      />
                     </div>
 
                     <div className={`${styles.formGroup} ${styles.formGridFull}`}>
@@ -2195,11 +2265,13 @@ export default function SettingsPage() {
                       <p className={styles.settingDesc}>Duration audit records are retained before automated cold storage archiving.</p>
                     </div>
                     <div className={styles.settingControl}>
-                      <select className={styles.select} defaultValue="90" style={{ width: "140px" }}>
-                        <option value="30">30 Days</option>
-                        <option value="90">90 Days (Default)</option>
-                        <option value="365">1 Year (Enterprise)</option>
-                      </select>
+                      <CustomSelect
+                        value={auditRetention}
+                        onChange={(val) => setAuditRetention(val)}
+                        options={AUDIT_RETENTION_OPTIONS}
+                        align="right"
+                        style={{ minWidth: "170px" }}
+                      />
                     </div>
                   </div>
 
@@ -2209,11 +2281,13 @@ export default function SettingsPage() {
                       <p className={styles.settingDesc}>Step-by-step console logs and screenshots generated during web tasks.</p>
                     </div>
                     <div className={styles.settingControl}>
-                      <select className={styles.select} defaultValue="30" style={{ width: "140px" }}>
-                        <option value="14">14 Days</option>
-                        <option value="30">30 Days (Default)</option>
-                        <option value="60">60 Days</option>
-                      </select>
+                      <CustomSelect
+                        value={agentRetention}
+                        onChange={(val) => setAgentRetention(val)}
+                        options={AGENT_RETENTION_OPTIONS}
+                        align="right"
+                        style={{ minWidth: "170px" }}
+                      />
                     </div>
                   </div>
                 </div>
