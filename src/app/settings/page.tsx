@@ -249,10 +249,10 @@ export default function SettingsPage() {
   return (
     <AppLayout activeRoute="/settings">
       <div className={styles.settingsLayout}>
-        {/* 1. Identity & Workspace Profile Card */}
+        {/* 1. Identity & My Profile Card */}
         <div className={styles.settingsCard}>
           <div className={styles.settingsCardHeader}>
-            <h2 className={styles.settingsCardTitle}>Workspace Profile</h2>
+            <h2 className={styles.settingsCardTitle}>My Profile</h2>
           </div>
 
           <div className={styles.settingsFormRow}>
