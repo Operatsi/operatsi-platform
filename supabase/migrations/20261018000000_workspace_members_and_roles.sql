@@ -79,12 +79,12 @@ ON CONFLICT DO NOTHING;
 
 -- 4. WORKSPACE MEMBERS TABLE
 CREATE TABLE IF NOT EXISTS public.workspace_members (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_primary',
     user_id VARCHAR(128) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    email_normalized VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    email_normalized VARCHAR(255),
+    name VARCHAR(255),
     display_name VARCHAR(255),
     avatar_url TEXT,
     role_id TEXT NOT NULL REFERENCES public.workspace_roles(id),
@@ -96,6 +96,12 @@ CREATE TABLE IF NOT EXISTS public.workspace_members (
     CONSTRAINT uq_workspace_member UNIQUE (workspace_id, user_id)
 );
 
+ALTER TABLE public.workspace_members ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE public.workspace_members ADD COLUMN IF NOT EXISTS email_normalized VARCHAR(255);
+ALTER TABLE public.workspace_members ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+ALTER TABLE public.workspace_members ADD COLUMN IF NOT EXISTS display_name VARCHAR(255);
+ALTER TABLE public.workspace_members ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace_id ON public.workspace_members(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_workspace_members_user_id ON public.workspace_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_workspace_members_email_norm ON public.workspace_members(email_normalized);
@@ -103,7 +109,7 @@ CREATE INDEX IF NOT EXISTS idx_workspace_members_role ON public.workspace_member
 
 -- 5. WORKSPACE INVITATIONS TABLE
 CREATE TABLE IF NOT EXISTS public.workspace_invitations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_primary',
     invited_email VARCHAR(255) NOT NULL,
     invited_email_normalized VARCHAR(255) NOT NULL,
@@ -130,7 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_workspace_invitations_status ON public.workspace_
 
 -- 6. WORKSPACE MEMBERSHIP AUDIT LOG TABLE
 CREATE TABLE IF NOT EXISTS public.workspace_membership_audit (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL DEFAULT 'ws_primary',
     actor_user_id VARCHAR(128) NOT NULL,
     actor_name VARCHAR(255) NOT NULL,
@@ -175,32 +181,36 @@ ALTER TABLE public.workspace_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workspace_membership_audit ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated members to read roles and permissions
+DROP POLICY IF EXISTS "Allow authenticated read on workspace_roles" ON public.workspace_roles;
 CREATE POLICY "Allow authenticated read on workspace_roles"
     ON public.workspace_roles FOR SELECT
     TO authenticated
     USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated read on workspace_role_permissions" ON public.workspace_role_permissions;
 CREATE POLICY "Allow authenticated read on workspace_role_permissions"
     ON public.workspace_role_permissions FOR SELECT
     TO authenticated
     USING (true);
 
 -- Workspace members can view members in their workspace
+DROP POLICY IF EXISTS "Workspace members view members" ON public.workspace_members;
 CREATE POLICY "Workspace members view members"
     ON public.workspace_members FOR SELECT
     TO authenticated
     USING (
         workspace_id IN (
-            SELECT m.workspace_id FROM public.workspace_members m WHERE m.user_id = auth.uid()
+            SELECT m.workspace_id FROM public.workspace_members m WHERE m.user_id = auth.uid()::text
         )
     );
 
 -- Workspace members can view invitations in their workspace
+DROP POLICY IF EXISTS "Workspace members view invitations" ON public.workspace_invitations;
 CREATE POLICY "Workspace members view invitations"
     ON public.workspace_invitations FOR SELECT
     TO authenticated
     USING (
         workspace_id IN (
-            SELECT m.workspace_id FROM public.workspace_members m WHERE m.user_id = auth.uid()
+            SELECT m.workspace_id FROM public.workspace_members m WHERE m.user_id = auth.uid()::text
         )
     );

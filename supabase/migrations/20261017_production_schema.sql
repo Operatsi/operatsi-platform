@@ -113,7 +113,7 @@ ON CONFLICT DO NOTHING;
 
 -- 6. WORKSPACE MEMBERS TABLE
 CREATE TABLE IF NOT EXISTS public.workspace_members (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     user_id VARCHAR(128) NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
     role_id TEXT NOT NULL REFERENCES public.workspace_roles(id),
@@ -131,7 +131,7 @@ CREATE INDEX IF NOT EXISTS idx_workspace_members_role ON public.workspace_member
 
 -- 7. WORKSPACE INVITATIONS TABLE
 CREATE TABLE IF NOT EXISTS public.workspace_invitations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     invited_email VARCHAR(255) NOT NULL,
     invited_email_normalized VARCHAR(255) NOT NULL,
@@ -158,7 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_invitations_status ON public.workspace_invitation
 
 -- 8. PROJECTS TABLE
 CREATE TABLE IF NOT EXISTS public.projects (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -172,7 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_projects_workspace ON public.projects(workspace_i
 
 -- 9. TASKS TABLE
 CREATE TABLE IF NOT EXISTS public.tasks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     project_id UUID REFERENCES public.projects(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
@@ -192,7 +192,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status);
 
 -- 10. SECURITY AUDIT LOGS TABLE
 CREATE TABLE IF NOT EXISTS public.security_audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id VARCHAR(100) NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     actor_user_id VARCHAR(128) NOT NULL,
     actor_name VARCHAR(255) NOT NULL,
@@ -212,7 +212,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.security_audit_lo
 
 -- 11. NOTIFICATION EVENTS TABLE
 CREATE TABLE IF NOT EXISTS public.notification_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient_uid VARCHAR(128) NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
     workspace_id VARCHAR(100) NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
     type VARCHAR(100) NOT NULL,
@@ -276,28 +276,33 @@ RETURNS TEXT AS $$
 $$ LANGUAGE sql STABLE;
 
 -- User Profiles: Users can view profiles and update their own profile
+DROP POLICY IF EXISTS "Users can read all workspace member profiles" ON public.user_profiles;
 CREATE POLICY "Users can read all workspace member profiles"
     ON public.user_profiles FOR SELECT
     TO authenticated
     USING (true);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.user_profiles;
 CREATE POLICY "Users can update their own profile"
     ON public.user_profiles FOR UPDATE
     TO authenticated
     USING (id = public.firebase_auth_uid());
 
 -- Roles and Permissions: Read-only access to all authenticated members
+DROP POLICY IF EXISTS "Roles are readable by authenticated members" ON public.workspace_roles;
 CREATE POLICY "Roles are readable by authenticated members"
     ON public.workspace_roles FOR SELECT
     TO authenticated
     USING (true);
 
+DROP POLICY IF EXISTS "Permissions are readable by authenticated members" ON public.workspace_role_permissions;
 CREATE POLICY "Permissions are readable by authenticated members"
     ON public.workspace_role_permissions FOR SELECT
     TO authenticated
     USING (true);
 
 -- Workspaces: Members can view the workspaces they belong to
+DROP POLICY IF EXISTS "Members can view their workspaces" ON public.workspaces;
 CREATE POLICY "Members can view their workspaces"
     ON public.workspaces FOR SELECT
     TO authenticated
@@ -308,6 +313,7 @@ CREATE POLICY "Members can view their workspaces"
     );
 
 -- Workspace Members: Members can view fellow members in their workspaces
+DROP POLICY IF EXISTS "Members can view workspace member roster" ON public.workspace_members;
 CREATE POLICY "Members can view workspace member roster"
     ON public.workspace_members FOR SELECT
     TO authenticated
@@ -318,6 +324,7 @@ CREATE POLICY "Members can view workspace member roster"
     );
 
 -- Workspace Invitations: Viewable by workspace members
+DROP POLICY IF EXISTS "Members can view workspace invitations" ON public.workspace_invitations;
 CREATE POLICY "Members can view workspace invitations"
     ON public.workspace_invitations FOR SELECT
     TO authenticated
@@ -328,6 +335,7 @@ CREATE POLICY "Members can view workspace invitations"
     );
 
 -- Projects: Isolated per workspace
+DROP POLICY IF EXISTS "Members can view projects in their workspace" ON public.projects;
 CREATE POLICY "Members can view projects in their workspace"
     ON public.projects FOR SELECT
     TO authenticated
@@ -338,6 +346,7 @@ CREATE POLICY "Members can view projects in their workspace"
     );
 
 -- Tasks: Isolated per workspace
+DROP POLICY IF EXISTS "Members can view tasks in their workspace" ON public.tasks;
 CREATE POLICY "Members can view tasks in their workspace"
     ON public.tasks FOR SELECT
     TO authenticated
@@ -348,12 +357,14 @@ CREATE POLICY "Members can view tasks in their workspace"
     );
 
 -- Notifications: Strictly scoped to the authenticated recipient
+DROP POLICY IF EXISTS "Users can view and manage their own notifications" ON public.notification_events;
 CREATE POLICY "Users can view and manage their own notifications"
     ON public.notification_events FOR ALL
     TO authenticated
     USING (recipient_uid = public.firebase_auth_uid());
 
 -- Security Audit Logs: Only workspace Owners and Admins can view
+DROP POLICY IF EXISTS "Admins can view workspace audit logs" ON public.security_audit_logs;
 CREATE POLICY "Admins can view workspace audit logs"
     ON public.security_audit_logs FOR SELECT
     TO authenticated

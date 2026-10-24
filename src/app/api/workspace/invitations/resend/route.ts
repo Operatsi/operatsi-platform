@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       rawToken,
       expiresAt: expirationDate,
       customMessage: inviteData.message,
-      appBaseUrl: req.nextUrl.origin,
+      appBaseUrl: process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin,
     });
 
     const deliveryStatus = emailResult.success ? "delivered" : "failed";

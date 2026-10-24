@@ -167,29 +167,53 @@ export function subscribeToNotifications(
 
   const notificationsRef = collection(db, "users", uid, "notifications");
   const maxLimit = options.limitCount || 50;
+  // Fetch a sufficient window of recent notifications to filter in-memory
+  const fetchLimit = Math.max(maxLimit * 3, 50);
 
-  // Build constraints
-  const constraints: any[] = [];
+  // Single-field ordering on createdAt requires no composite indexes,
+  // preventing "index currently building" errors while indexes finish deploying.
+  const q = query(notificationsRef, orderBy("createdAt", "desc"), limit(fetchLimit));
 
-  if (options.filter === "unread") {
-    constraints.push(where("readAt", "==", null));
-    constraints.push(where("archivedAt", "==", null));
-  } else if (options.filter === "archived") {
-    // Note: archived notifications have non-null archivedAt
-    // We'll filter in memory if compound inequalities are restricted
-  } else {
-    // "all" active inbox view: only non-archived
-    constraints.push(where("archivedAt", "==", null));
-  }
+  const transformDoc = (docSnap: any): NotificationItem => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      schemaVersion: data.schemaVersion || 1,
+      type: data.type || "general",
+      category: data.category || "tasks",
+      title: data.title || "",
+      body: data.body || "",
+      workspaceId: data.workspaceId || "ws_default",
+      actorId: data.actorId,
+      actorName: data.actorName,
+      actorAvatar: data.actorAvatar,
+      resourceType: data.resourceType || "task",
+      resourceId: data.resourceId || "",
+      actionUrl: data.actionUrl || "/inbox",
+      priority: data.priority || "normal",
+      deduplicationKey: data.deduplicationKey,
+      createdAt: data.createdAt,
+      readAt: data.readAt || null,
+      archivedAt: data.archivedAt || null,
+    };
+  };
 
-  if (options.category && options.category !== "all") {
-    constraints.push(where("category", "==", options.category));
-  }
+  const matchesFilters = (data: any): boolean => {
+    if (options.filter === "archived") {
+      if (!data.archivedAt) return false;
+    } else if (options.filter === "unread") {
+      if (data.readAt || data.archivedAt) return false;
+    } else {
+      // Default / "all": active inbox only (not archived)
+      if (data.archivedAt) return false;
+    }
 
-  constraints.push(orderBy("createdAt", "desc"));
-  constraints.push(limit(maxLimit));
+    if (options.category && options.category !== "all" && data.category !== options.category) {
+      return false;
+    }
 
-  const q = query(notificationsRef, ...constraints);
+    return true;
+  };
 
   return onSnapshot(
     q,
@@ -197,34 +221,13 @@ export function subscribeToNotifications(
       const items: NotificationItem[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        // If filtering for archived specifically:
-        if (options.filter === "archived" && !data.archivedAt) {
-          return;
+        if (matchesFilters(data) && items.length < maxLimit) {
+          items.push(transformDoc(docSnap));
         }
-        items.push({
-          id: docSnap.id,
-          schemaVersion: data.schemaVersion || 1,
-          type: data.type || "general",
-          category: data.category || "tasks",
-          title: data.title || "",
-          body: data.body || "",
-          workspaceId: data.workspaceId || "ws_default",
-          actorId: data.actorId,
-          actorName: data.actorName,
-          actorAvatar: data.actorAvatar,
-          resourceType: data.resourceType || "task",
-          resourceId: data.resourceId || "",
-          actionUrl: data.actionUrl || "/inbox",
-          priority: data.priority || "normal",
-          deduplicationKey: data.deduplicationKey,
-          createdAt: data.createdAt,
-          readAt: data.readAt || null,
-          archivedAt: data.archivedAt || null,
-        });
       });
       onUpdate(items);
     },
-    (err) => {
+    (err: any) => {
       console.error("[Notifications] Listener error:", err);
       if (onError) onError(err);
     }

@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import crypto from "crypto";
 
 export interface InvitationEmailOptions {
@@ -15,6 +16,7 @@ export interface InvitationEmailOptions {
 
 export interface InvitationEmailResult {
   success: boolean;
+  provider: "resend" | "smtp" | "none";
   messageId?: string;
   error?: string;
   inviteUrl: string;
@@ -292,18 +294,53 @@ Operatsi
 An OVIC Labs Company
   `.trim();
 
-  // Read SMTP Configuration
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const configuredFromEmail = process.env.EMAIL_FROM || process.env.SMTP_FROM || "operatesihq@gmail.com";
+  const emailSubject = `You're invited to join ${workspaceName} on OperatSI`;
+
+  // 1. Primary Delivery Method: Resend (if RESEND_API_KEY is configured)
+  if (resendApiKey && !resendApiKey.startsWith("REPLACE_WITH_") && resendApiKey.trim().length > 10) {
+    try {
+      const resend = new Resend(resendApiKey);
+      const resendFrom = configuredFromEmail.includes("@") ? configuredFromEmail : "OperatSI <onboarding@resend.dev>";
+
+      const resendResponse = await resend.emails.send({
+        from: resendFrom,
+        to: toEmail,
+        subject: emailSubject,
+        text: textContent,
+        html: htmlContent,
+      });
+
+      if (resendResponse.error) {
+        console.warn("[InvitationEmail] Resend API returned error, falling back to SMTP:", resendResponse.error);
+      } else if (resendResponse.data?.id) {
+        console.log(`[InvitationEmail] Dispatched via Resend successfully. Message ID: ${resendResponse.data.id}`);
+        return {
+          success: true,
+          provider: "resend",
+          messageId: resendResponse.data.id,
+          inviteUrl,
+        };
+      }
+    } catch (resendErr: any) {
+      console.warn("[InvitationEmail] Resend delivery attempt threw error, attempting SMTP fallback:", resendErr?.message);
+    }
+  }
+
+  // 2. Secondary / Fallback Delivery Method: Verified SMTP (Nodemailer with Strict Timeouts)
   const smtpHost = process.env.SMTP_HOST || process.env.EMAIL_SERVER_HOST;
   const smtpPort = Number(process.env.SMTP_PORT || process.env.EMAIL_SERVER_PORT || 587);
   const smtpUser = process.env.SMTP_USER || process.env.EMAIL_SERVER_USER || process.env.GMAIL_USER;
   const smtpPass = process.env.SMTP_PASS || process.env.EMAIL_SERVER_PASSWORD || process.env.GMAIL_APP_PASSWORD;
-  const fromEmail = process.env.SMTP_FROM || process.env.EMAIL_FROM || "no-reply@operatsi.com";
+  const fromEmail = process.env.SMTP_FROM || process.env.EMAIL_FROM || "operatesihq@gmail.com";
 
   if (!smtpHost || !smtpUser || !smtpPass) {
-    console.warn("[InvitationEmail] SMTP configuration missing. Email dispatch simulated in local dev.");
+    console.warn("[InvitationEmail] Neither Resend nor SMTP credentials configured in server environment.");
     return {
       success: false,
-      error: "SMTP credentials not configured in server environment",
+      provider: "none",
+      error: "No email provider credentials configured in server environment",
       inviteUrl,
     };
   }
@@ -317,25 +354,32 @@ An OVIC Labs Company
         user: smtpUser,
         pass: smtpPass,
       },
+      // Strict connection and socket timeouts to prevent indefinite hanging
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
     });
 
     const info = await transporter.sendMail({
-      from: `"Operatsi Workspace" <${fromEmail}>`,
+      from: `"OperatSI Workspace" <${fromEmail}>`,
       to: toEmail,
-      subject: `You've been invited to join ${workspaceName} on Operatsi`,
+      subject: emailSubject,
       text: textContent,
       html: htmlContent,
     });
 
+    console.log(`[InvitationEmail] Dispatched via SMTP successfully. Message ID: ${info.messageId}`);
     return {
       success: true,
+      provider: "smtp",
       messageId: info.messageId,
       inviteUrl,
     };
   } catch (err: any) {
-    console.error("[InvitationEmail] Delivery error:", err);
+    console.error("[InvitationEmail] SMTP delivery error:", err);
     return {
       success: false,
+      provider: "none",
       error: err.message || "Failed to dispatch invitation email",
       inviteUrl,
     };

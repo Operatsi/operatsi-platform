@@ -7,6 +7,7 @@ import {
   hasPermission,
   WorkspaceMember,
   normalizeEmail,
+  removeUndefinedFields,
 } from "@/lib/workspaceMembers";
 import { isDatabaseConfigured, sqlQuery } from "@/lib/supabase/db";
 import {
@@ -241,12 +242,21 @@ export async function recordWorkspaceAudit(
       .collection("audit")
       .doc();
 
-    await auditRef.set({
-      id: auditRef.id,
-      workspaceId,
-      ...event,
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    await auditRef.set(
+      removeUndefinedFields({
+        id: auditRef.id,
+        workspaceId,
+        actorUserId: event.actorUserId,
+        actorName: event.actorName || "Workspace Admin",
+        actorEmail: event.actorEmail,
+        targetUserId: event.targetUserId || null,
+        targetEmail: event.targetEmail,
+        action: event.action,
+        previousValue: event.previousValue || null,
+        newValue: event.newValue || null,
+        createdAt: FieldValue.serverTimestamp(),
+      })
+    );
 
     // Also persist audit log to PostgreSQL if configured
     if (isDatabaseConfigured()) {

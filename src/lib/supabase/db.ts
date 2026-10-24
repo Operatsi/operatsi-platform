@@ -19,6 +19,11 @@ export function isDatabaseConfigured(): boolean {
   const connStr = process.env.DATABASE_URL;
   if (!connStr) return false;
   if (connStr.startsWith("REPLACE_WITH_") || connStr.includes("CHANGE_ME")) return false;
+  // A PostgreSQL connection URI MUST start with postgresql:// or postgres://
+  // Rejects HTTP/HTTPS URLs (such as Supabase JWKS endpoint) that cause hanging connection timeouts
+  if (!connStr.startsWith("postgresql://") && !connStr.startsWith("postgres://")) {
+    return false;
+  }
   return true;
 }
 

@@ -309,17 +309,38 @@ export function MembersAndRolesSection({
     return filteredMembers.slice(start, start + pageSize);
   }, [filteredMembers, currentPage, pageSize]);
 
-  // Actions: Send Invitation
+  // Actions: Send Invitation with Guaranteed State Cleanup, Timeout & Idempotency
   const handleSendInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) return;
+    if (isSendingInvite) return; // Prevent duplicate concurrent submissions
+    if (!currentUser) {
+      setInviteModalFeedback({ type: "error", text: "You must be signed in to issue workspace invitations." });
+      return;
+    }
     if (!inviteEmail || !isValidEmail(inviteEmail)) {
       setInviteModalFeedback({ type: "error", text: "Please enter a valid work email address." });
+      return;
+    }
+    const validRoles = ["admin", "manager", "member", "viewer"];
+    if (!inviteRole || !validRoles.includes(inviteRole)) {
+      setInviteModalFeedback({ type: "error", text: "Please select an authorized workspace role." });
+      return;
+    }
+    if (!workspaceId || typeof workspaceId !== "string" || !workspaceId.trim()) {
+      setInviteModalFeedback({ type: "error", text: "Invalid workspace configuration." });
       return;
     }
 
     setIsSendingInvite(true);
     setInviteModalFeedback(null);
+
+    // AbortController to guarantee request settles within 15 seconds
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => {
+      controller.abort();
+    }, 15000);
+
+    const idempotencyKey = `inv_${workspaceId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     try {
       const idToken = await currentUser.getIdToken();
@@ -328,34 +349,65 @@ export function MembersAndRolesSection({
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
+          "X-Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
           workspaceId,
           email: inviteEmail.trim(),
           role: inviteRole,
           message: inviteMessage.trim(),
+          idempotencyKey,
         }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to dispatch invitation.");
+      clearTimeout(timeoutTimer);
+
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        throw new Error(`Server returned status ${res.status}: ${rawText.slice(0, 100) || res.statusText}`);
       }
 
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to dispatch invitation (Status: ${res.status}).`);
+      }
+
+      // Check delivery status
+      const isDelivered = data.deliveryStatus === "delivered";
+      const providerLabel = data.deliveryProvider ? ` via ${String(data.deliveryProvider).toUpperCase()}` : "";
+
       setInviteModalFeedback({
-        type: "success",
-        text: data.deliveryStatus === "delivered"
-          ? `Invitation sent successfully to ${inviteEmail.trim()}.`
-          : `Invitation created. (Email queued: ${data.deliveryError || "local environment"}).`,
+        type: isDelivered ? "success" : "error",
+        text: isDelivered
+          ? `Invitation sent successfully to ${inviteEmail.trim()}${providerLabel}.`
+          : `Invitation created in workspace, but email provider delivery failed: ${data.deliveryError || "Provider unavailable"}. You can share the link manually.`,
         link: data.inviteUrl,
       });
 
-      setInviteEmail("");
-      setInviteMessage("");
-      showToast("success", `Invitation issued for ${inviteRole}.`);
+      if (isDelivered) {
+        setInviteEmail("");
+        setInviteMessage("");
+        showToast("success", `Invitation issued for ${inviteRole}.`);
+      } else {
+        showToast("error", `Invitation created, but email delivery failed.`);
+      }
     } catch (err: any) {
-      setInviteModalFeedback({ type: "error", text: err.message || "Failed to create invitation." });
+      clearTimeout(timeoutTimer);
+      const isTimeout = err?.name === "AbortError" || err?.message?.includes("aborted");
+      const errorMessage = isTimeout
+        ? "Invitation request timed out after 15 seconds. Please check Pending Invitations or try again."
+        : err?.message || "Failed to create invitation.";
+
+      setInviteModalFeedback({
+        type: "error",
+        text: errorMessage,
+      });
+      showToast("error", errorMessage);
     } finally {
+      clearTimeout(timeoutTimer);
       setIsSendingInvite(false);
     }
   };
@@ -363,6 +415,8 @@ export function MembersAndRolesSection({
   // Actions: Resend Invitation
   const handleResendInvitation = async (invitationId: string, email: string) => {
     if (!currentUser) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
       const idToken = await currentUser.getIdToken();
       const res = await fetch("/api/workspace/invitations/resend", {
@@ -372,14 +426,23 @@ export function MembersAndRolesSection({
           Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({ workspaceId, invitationId }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeout);
+      const rawText = await res.text();
+      const data = rawText ? JSON.parse(rawText) : {};
       if (!res.ok) throw new Error(data.error || "Failed to resend invitation.");
 
-      showToast("success", `Fresh invitation sent to ${email}.`);
+      const isDelivered = data.deliveryStatus === "delivered";
+      if (isDelivered) {
+        showToast("success", `Fresh invitation email sent to ${email}.`);
+      } else {
+        showToast("error", `Invitation rotated, but email dispatch failed: ${data.deliveryError || "Provider error"}`);
+      }
     } catch (err: any) {
-      showToast("error", err.message || "Could not resend invitation.");
+      clearTimeout(timeout);
+      showToast("error", err?.name === "AbortError" ? "Request timed out." : err.message || "Could not resend invitation.");
     }
   };
 
@@ -388,6 +451,8 @@ export function MembersAndRolesSection({
     if (!currentUser) return;
     if (!confirm(`Are you sure you want to permanently revoke the invitation for ${email}?`)) return;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
       const idToken = await currentUser.getIdToken();
       const res = await fetch("/api/workspace/invitations/revoke", {
@@ -397,20 +462,26 @@ export function MembersAndRolesSection({
           Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({ workspaceId, invitationId }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeout);
+      const rawText = await res.text();
+      const data = rawText ? JSON.parse(rawText) : {};
       if (!res.ok) throw new Error(data.error || "Failed to revoke invitation.");
 
       showToast("success", `Invitation for ${email} revoked.`);
     } catch (err: any) {
-      showToast("error", err.message || "Could not revoke invitation.");
+      clearTimeout(timeout);
+      showToast("error", err?.name === "AbortError" ? "Request timed out." : err.message || "Could not revoke invitation.");
     }
   };
 
   // Actions: Copy Invitation Link (Rotates token safely)
   const handleCopyInvitationLink = async (invitationId: string) => {
     if (!currentUser) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
       const idToken = await currentUser.getIdToken();
       const res = await fetch("/api/workspace/invitations/copy-link", {
@@ -420,15 +491,19 @@ export function MembersAndRolesSection({
           Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({ workspaceId, invitationId }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeout);
+      const rawText = await res.text();
+      const data = rawText ? JSON.parse(rawText) : {};
       if (!res.ok) throw new Error(data.error || "Failed to generate link.");
 
       await navigator.clipboard.writeText(data.inviteUrl);
       showToast("success", "Secure invitation link copied to clipboard!");
     } catch (err: any) {
-      showToast("error", err.message || "Failed to copy link.");
+      clearTimeout(timeout);
+      showToast("error", err?.name === "AbortError" ? "Request timed out." : err.message || "Failed to copy link.");
     }
   };
 
@@ -993,48 +1068,6 @@ export function MembersAndRolesSection({
         </div>
       </div>
 
-      {/* 5. Role-Based Access Control Reference Matrix */}
-      <div className={styles.sectionCard}>
-        <div className={styles.sectionHeader}>
-          <div>
-            <h2 className={styles.sectionHeaderTitle}>Workspace Role Permissions Matrix (RBAC)</h2>
-            <p className={styles.sectionHeaderSubtitle}>
-              Server-enforced authorization policies controlling tenant actions and feature delegations.
-            </p>
-          </div>
-          <span className={styles.badge} style={{ background: "rgba(22, 163, 74, 0.1)", color: "#22c55e" }}>
-            <ShieldCheckIcon size={12} /> Real-Time Enforced
-          </span>
-        </div>
-
-        <div className={styles.matrixGrid}>
-          {ROLES_LIST.map((roleKey) => {
-            const role = WORKSPACE_ROLES[roleKey];
-            return (
-              <div key={role.id} className={styles.matrixCard}>
-                <div className={styles.matrixRoleHeader}>
-                  <span className={`${styles.badge} ${styles[role.badgeClass] || styles.badgeNeutral}`}>
-                    {role.name}
-                  </span>
-                  {role.id === "owner" && (
-                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                      Protected Tier
-                    </span>
-                  )}
-                </div>
-                <p className={styles.matrixDesc}>{role.description}</p>
-                <div className={styles.matrixPerms}>
-                  {role.permissions.map((p) => (
-                    <span key={p} className={styles.matrixPill}>
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
       {/* ===============================================================
           MODALS
@@ -1153,7 +1186,7 @@ export function MembersAndRolesSection({
                   {isSendingInvite ? (
                     <>
                       <SpinnerIcon size={14} />
-                      <span>Sending Email...</span>
+                      <span>Sending Invitation...</span>
                     </>
                   ) : (
                     <span>Send Invitation</span>

@@ -13,6 +13,7 @@ import {
   isValidEmail,
   normalizeEmail,
   WorkspaceInvitation,
+  removeUndefinedFields,
 } from "@/lib/workspaceMembers";
 import {
   generateSecureToken,
@@ -118,22 +119,42 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const {
       email,
       role = "member",
-      message = "",
+      message,
       workspaceId = DEFAULT_WORKSPACE_ID,
     } = body;
 
-    // 1. Email format validation
-    if (!email || !isValidEmail(email)) {
+    // 1. Strict validation of required workspaceId
+    if (!workspaceId || typeof workspaceId !== "string" || !workspaceId.trim()) {
+      return NextResponse.json({ error: "Invalid or missing workspace identifier." }, { status: 400 });
+    }
+
+    // 2. Strict validation of required recipient email
+    if (!email || typeof email !== "string" || !isValidEmail(email)) {
       return NextResponse.json({ error: "Please enter a valid work email address" }, { status: 400 });
     }
 
+    // 3. Strict validation of invitable role
+    const validRoles: WorkspaceRole[] = ["admin", "manager", "member", "viewer"];
+    if (!role || !validRoles.includes(role as WorkspaceRole)) {
+      return NextResponse.json(
+        { error: `Invalid role '${role}'. Permitted roles are: admin, manager, member, viewer.` },
+        { status: 400 }
+      );
+    }
+
+    // 4. Safe message normalization: trim if string, otherwise empty string
+    const normalizedMessage =
+      typeof message === "string"
+        ? message.trim()
+        : "";
+
     const emailNormalized = normalizeEmail(email);
 
-    // 2. Authorization check: does actor have members.invite permission?
+    // 5. Authorization check: does actor have members.invite permission?
     const authResult = await requireWorkspacePermission(req, "members.invite", workspaceId);
     if ("error" in authResult) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status });
@@ -141,12 +162,41 @@ export async function POST(req: NextRequest) {
 
     const actor = authResult;
 
-    // 3. Verify actor is authorized to assign this role
+    // 6. Verify actor is authorized to assign this role
     if (!canAssignRole(actor.role, role as WorkspaceRole)) {
       return NextResponse.json(
         { error: `Forbidden: role '${actor.role}' cannot assign role '${role}'` },
         { status: 403 }
       );
+    }
+
+    const idempotencyKey =
+      req.headers.get("x-idempotency-key") ||
+      req.headers.get("idempotency-key") ||
+      body.idempotencyKey ||
+      null;
+
+    // If an idempotency key is supplied, check if we already processed this request
+    if (idempotencyKey) {
+      const existingKeySnap = await adminDb
+        .collection("workspaces")
+        .doc(workspaceId)
+        .collection("invitations")
+        .where("idempotencyKey", "==", idempotencyKey)
+        .limit(1)
+        .get();
+
+      if (!existingKeySnap.empty) {
+        const existingData = existingKeySnap.docs[0].data() as WorkspaceInvitation;
+        return NextResponse.json({
+          success: true,
+          idempotent: true,
+          message: `Existing invitation retrieved for ${existingData.invitedEmail}`,
+          invitationId: existingKeySnap.docs[0].id,
+          deliveryStatus: existingData.deliveryStatus,
+          deliveryError: existingData.deliveryError || null,
+        });
+      }
     }
 
     // 4. Check if recipient is already an active member of this workspace
@@ -212,36 +262,41 @@ export async function POST(req: NextRequest) {
     const wsDoc = await adminDb.collection("workspaces").doc(workspaceId).get();
     const workspaceName = wsDoc.exists ? wsDoc.data()?.name || DEFAULT_WORKSPACE_NAME : DEFAULT_WORKSPACE_NAME;
 
-    // 9. Dispatch real email via nodemailer
+    // Resolve application base URL
+    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
+    // 9. Dispatch real email via Resend (with verified SMTP fallback)
+    const inviterName = actor.displayName || actor.email?.split("@")[0] || "Workspace Admin";
     const emailResult = await sendWorkspaceInvitationEmail({
       toEmail: email.trim(),
-      inviterName: actor.displayName,
+      inviterName,
       workspaceName,
       role,
       rawToken,
       expiresAt: expirationDate,
-      customMessage: message.trim() || undefined,
-      appBaseUrl: req.nextUrl.origin,
+      customMessage: normalizedMessage.length > 0 ? normalizedMessage : undefined,
+      appBaseUrl,
     });
 
     const deliveryStatus = emailResult.success ? "delivered" : "failed";
 
-    // 10. Persist invitation record
-    const invitationData: WorkspaceInvitation = {
+    // 10. Persist invitation record (normalize optional fields and omit undefined)
+    const invitationData: Record<string, any> = {
       id: invitationId,
       workspaceId,
       invitedEmail: email.trim(),
       invitedEmailNormalized: emailNormalized,
       role: role as WorkspaceRole,
       invitedBy: actor.uid,
-      inviterName: actor.displayName,
+      inviterName,
       tokenHash,
       status: "pending",
-      message: message.trim() || undefined,
       expiresAt,
       deliveryStatus,
       deliveryError: emailResult.error || null,
       deliveryMessageId: emailResult.messageId || null,
+      idempotencyKey: idempotencyKey || null,
+      emailProvider: emailResult.provider || null,
       acceptedBy: null,
       acceptedAt: null,
       revokedAt: null,
@@ -249,26 +304,33 @@ export async function POST(req: NextRequest) {
       updatedAt: FieldValue.serverTimestamp(),
     };
 
-    await invitationRef.set(invitationData);
+    // If a personal message is provided, store the trimmed string; otherwise omit field to satisfy Firestore
+    if (normalizedMessage.length > 0) {
+      invitationData.message = normalizedMessage;
+    }
+
+    await invitationRef.set(removeUndefinedFields(invitationData));
 
     // 11. Store reverse token hash lookup for fast single-use token verification
     await adminDb
       .collection("workspace_invitations_by_token")
       .doc(tokenHash)
-      .set({
-        workspaceId,
-        invitationId,
-        tokenHash,
-        invitedEmailNormalized: emailNormalized,
-        expiresAt,
-        status: "pending",
-        createdAt: FieldValue.serverTimestamp(),
-      });
+      .set(
+        removeUndefinedFields({
+          workspaceId,
+          invitationId,
+          tokenHash,
+          invitedEmailNormalized: emailNormalized,
+          expiresAt,
+          status: "pending",
+          createdAt: FieldValue.serverTimestamp(),
+        })
+      );
 
     // 12. Record audit log in Firestore
     await recordWorkspaceAudit(workspaceId, {
       actorUserId: actor.uid,
-      actorName: actor.displayName,
+      actorName: inviterName,
       actorEmail: actor.email,
       targetEmail: email.trim(),
       action: "invitation_created",
@@ -280,7 +342,7 @@ export async function POST(req: NextRequest) {
       await ensurePostgresWorkspace(workspaceId, {
         uid: actor.uid,
         email: actor.email,
-        name: actor.displayName,
+        name: inviterName,
       });
 
       await createPostgresWorkspaceInvitation({
@@ -288,9 +350,9 @@ export async function POST(req: NextRequest) {
         invitedEmail: email.trim(),
         role: role as WorkspaceRole,
         invitedBy: actor.uid,
-        inviterName: actor.displayName,
+        inviterName,
         tokenHash,
-        message: message.trim() || undefined,
+        message: normalizedMessage.length > 0 ? normalizedMessage : undefined,
         expiresAt: expirationDate,
         deliveryStatus,
         deliveryError: emailResult.error || null,
@@ -314,9 +376,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Invitation successfully created and ${deliveryStatus === "delivered" ? "sent to" : "queued for"} ${email.trim()}`,
+      message: deliveryStatus === "delivered"
+        ? `Invitation email sent to ${email.trim()} via ${emailResult.provider.toUpperCase()}`
+        : `Invitation created in workspace, but email provider dispatch failed: ${emailResult.error || "Unknown error"}`,
       invitationId,
       deliveryStatus,
+      deliveryProvider: emailResult.provider,
+      deliveryMessageId: emailResult.messageId || null,
       deliveryError: emailResult.error || null,
       inviteUrl: emailResult.inviteUrl, // Provided once to inviter for optional manual copy
     });

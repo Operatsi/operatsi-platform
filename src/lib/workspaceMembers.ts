@@ -254,3 +254,19 @@ export function canRemoveMember(actorRole: WorkspaceRole, targetMemberRole: Work
   }
   return false;
 }
+
+/**
+ * Strips all undefined fields from an object to ensure strict Firestore serialization compatibility.
+ * Prevents "Cannot use 'undefined' as a Firestore value" runtime errors.
+ */
+export function removeUndefinedFields<T extends Record<string, any>>(obj: T): T {
+  if (!obj || typeof obj !== "object") return obj;
+  const result: any = Array.isArray(obj) ? [] : {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
