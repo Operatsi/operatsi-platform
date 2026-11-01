@@ -19,7 +19,7 @@
     "pg": "^8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "resend": "^6.34.1",
+    "resend": "^6.35.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
